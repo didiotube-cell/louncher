@@ -1,0 +1,2670 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Giovani Santos TV Launcher</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Fontes: Plus Jakarta Sans & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --accent-color: #38bdf8;
+            --tile-size: 112px;
+            --tile-radius: 26px;
+            --scrim-opacity: 0.58;
+            --text-main: #ffffff;
+            --text-muted: rgba(255, 255, 255, 0.82);
+            --glass-bg: rgba(12, 18, 32, 0.56);
+            --glass-border: rgba(255, 255, 255, 0.20);
+        }
+
+        /* Tema Claro Luminoso opcional */
+        body.theme-light {
+            --text-main: #0f172a;
+            --text-muted: rgba(15, 23, 42, 0.80);
+            --glass-bg: rgba(255, 255, 255, 0.72);
+            --glass-border: rgba(15, 23, 42, 0.14);
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            color: var(--text-main);
+            margin: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #060913;
+        }
+
+        h1, h2, h3, .font-display {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        /* ===================================================================== */
+        /* 1. FUNDO DINÂMICO EM TELA CHEIA COM CROSSFADE CINEMATOGRÁFICO         */
+        /* ===================================================================== */
+        #wallpaper-stage {
+            position: fixed;
+            inset: 0;
+            z-index: -3;
+            overflow: hidden;
+            background: #060913;
+        }
+
+        .wallpaper-layer {
+            position: absolute;
+            inset: -12px;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            opacity: 0;
+            transform: scale(1.06);
+            transition: opacity 0.65s cubic-bezier(0.22, 1, 0.36, 1),
+                        transform 1.1s cubic-bezier(0.22, 1, 0.36, 1);
+            will-change: opacity, transform;
+        }
+
+        .wallpaper-layer.active {
+            opacity: 1;
+            transform: scale(1.01);
+        }
+
+        #wallpaper-scrim {
+            position: fixed;
+            inset: 0;
+            z-index: -2;
+            pointer-events: none;
+            background:
+                linear-gradient(90deg, rgba(5, 8, 18, calc(var(--scrim-opacity) + 0.24)) 0%, rgba(5, 8, 18, calc(var(--scrim-opacity) * 0.62)) 52%, rgba(5, 8, 18, calc(var(--scrim-opacity) * 0.18)) 100%),
+                linear-gradient(0deg, rgba(5, 8, 18, calc(var(--scrim-opacity) + 0.32)) 0%, rgba(5, 8, 18, 0.10) 48%, rgba(5, 8, 18, calc(var(--scrim-opacity) * 0.50)) 100%);
+            transition: background 0.35s ease;
+        }
+
+        body.theme-light #wallpaper-scrim {
+            background:
+                linear-gradient(90deg, rgba(248, 250, 252, 0.88) 0%, rgba(248, 250, 252, 0.55) 52%, rgba(248, 250, 252, 0.18) 100%),
+                linear-gradient(0deg, rgba(248, 250, 252, 0.90) 0%, rgba(248, 250, 252, 0.15) 50%, rgba(248, 250, 252, 0.60) 100%);
+        }
+
+        /* ===================================================================== */
+        /* 2. PÍLULAS GLASSMORPHISM & FOCO D-PAD ANDROID TV                      */
+        /* ===================================================================== */
+        .tv-pill {
+            background: var(--glass-bg);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.45);
+        }
+
+        .dpad-focusable {
+            outline: none;
+            transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+                        box-shadow 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+                        border-color 0.2s ease,
+                        background-color 0.2s ease;
+        }
+
+        .dpad-focusable.dpad-focused {
+            transform: scale(1.05);
+            box-shadow: 0 0 0 3px var(--accent-color), 0 16px 36px -6px rgba(0, 0, 0, 0.70);
+        }
+
+        /* Trilho da grade com folga ampla para o brilho espalhar livremente sem cortes laterais */
+        .dock-scroll-stage {
+            overflow-x: auto;
+            overflow-y: visible;
+            padding-top: 56px;
+            padding-bottom: 56px;
+            padding-left: 72px;
+            padding-right: 72px;
+            margin-top: -48px;
+            margin-bottom: -48px;
+            margin-left: -64px;
+            margin-right: -64px;
+            scrollbar-width: none;
+        }
+
+        .dock-scroll-stage::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* ===================================================================== */
+        /* 3. GRADE INFERIOR & BORDA BRILHANTE PULSANTE EXCLUSIVA NAS BORDAS     */
+        /* ===================================================================== */
+        @keyframes pulseAppBorder {
+            0%, 100% {
+                box-shadow:
+                    0 0 0 3px var(--tile-glow, #38bdf8),
+                    0 0 16px 2px var(--tile-glow, #38bdf8);
+            }
+            50% {
+                box-shadow:
+                    0 0 0 4.5px var(--tile-glow, #38bdf8),
+                    0 0 28px 6px var(--tile-glow, #38bdf8);
+            }
+        }
+
+        @keyframes pulseCutoutDropShadow {
+            0%, 100% {
+                filter:
+                    drop-shadow(0 0 2.5px var(--tile-glow, #38bdf8))
+                    drop-shadow(0 0 10px var(--tile-glow, #38bdf8));
+            }
+            50% {
+                filter:
+                    drop-shadow(0 0 4px var(--tile-glow, #38bdf8))
+                    drop-shadow(0 0 20px var(--tile-glow, #38bdf8));
+            }
+        }
+
+        .app-tile-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 11px;
+            flex-shrink: 0;
+            cursor: pointer;
+            position: relative;
+            transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .app-tile {
+            width: var(--tile-size);
+            height: var(--tile-size);
+            border-radius: var(--tile-radius);
+            position: relative;
+            overflow: visible;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            border: none;
+            box-shadow: 0 12px 26px -8px rgba(0, 0, 0, 0.55);
+            transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .app-tile-inner {
+            width: 100%;
+            height: 100%;
+            border-radius: var(--tile-radius);
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.96);
+            border: 2.5px solid rgba(255, 255, 255, 0.22);
+            transition: border-color 0.22s ease, border-radius 0.22s ease, background-color 0.22s ease;
+        }
+
+        /* Modo contorno livre / transparência sem caixa quadrada externa */
+        .app-tile.shape-contour .app-tile-inner {
+            background: transparent;
+            border: none;
+            border-radius: 0;
+            overflow: visible;
+        }
+
+        .app-tile.shape-round .app-tile-inner {
+            border-radius: 9999px;
+        }
+
+        /* Brilho pulsante EXCLUSIVAMENTE nas bordas do app selecionado, sem cortes */
+        .app-tile-wrapper.focused .app-tile {
+            transform: scale(1.13) translateY(-6px);
+        }
+
+        .app-tile-wrapper.focused .app-tile:not(.shape-contour) .app-tile-inner {
+            border-color: var(--tile-glow, #38bdf8);
+            animation: pulseAppBorder 1.85s ease-in-out infinite;
+        }
+
+        .app-tile-wrapper.focused .app-tile.shape-contour {
+            animation: pulseCutoutDropShadow 1.85s ease-in-out infinite;
+        }
+
+        .app-tile-label {
+            font-size: 13.5px;
+            font-weight: 600;
+            color: var(--text-main);
+            opacity: 0.76;
+            max-width: calc(var(--tile-size) + 18px);
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.60);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+
+        body.theme-light .app-tile-label {
+            text-shadow: none;
+        }
+
+        .app-tile-wrapper.focused .app-tile-label {
+            opacity: 1;
+            font-weight: 800;
+            transform: translateY(2px);
+        }
+
+        /* Cartão '+' ('Adicionar') ao final da grade */
+        .app-tile-add .app-tile-inner {
+            background: rgba(255, 255, 255, 0.14);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 2.5px dashed rgba(255, 255, 255, 0.55);
+            color: var(--text-main);
+        }
+
+        body.theme-light .app-tile-add .app-tile-inner {
+            background: rgba(15, 23, 42, 0.08);
+            border-color: rgba(15, 23, 42, 0.35);
+        }
+
+        .app-tile-wrapper.focused.app-tile-add .app-tile-inner {
+            border-style: solid;
+            border-color: var(--tile-glow, #38bdf8);
+            background: rgba(255, 255, 255, 0.24);
+        }
+
+        /* ===================================================================== */
+        /* 4. ANEL DE LONG-PRESS (SEGURAR OK PARA REMOVER ESTILO ANDROID TV)     */
+        /* ===================================================================== */
+        .hold-progress-overlay {
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            background: rgba(225, 29, 72, 0.86);
+            backdrop-filter: blur(4px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s ease;
+            z-index: 10;
+        }
+
+        .app-tile-wrapper.holding .hold-progress-overlay {
+            opacity: 1;
+        }
+
+        .app-tile-wrapper.holding .app-tile {
+            transform: scale(1.04) translateY(-2px);
+        }
+
+        .app-tile-wrapper.holding .app-tile-inner {
+            border-color: #fb7185;
+            animation: none;
+        }
+
+        .hold-ring-svg {
+            width: 46px;
+            height: 46px;
+            transform: rotate(-90deg);
+        }
+
+        .hold-ring-circle {
+            stroke-dasharray: 113.1;
+            stroke-dashoffset: 113.1;
+            transition: stroke-dashoffset 0.8s linear;
+        }
+
+        .app-tile-wrapper.holding .hold-ring-circle {
+            stroke-dashoffset: 0;
+        }
+
+        /* ===================================================================== */
+        /* 5. ESTILO DE CONFIGURAÇÕES SMART TV (PAINEL LATERAL / GAVETA)         */
+        /* ===================================================================== */
+        .tv-setting-row {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1.5px solid rgba(255, 255, 255, 0.08);
+            border-radius: 18px;
+            transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+                        background-color 0.2s ease,
+                        border-color 0.2s ease,
+                        box-shadow 0.2s ease;
+        }
+
+        .tv-setting-row.dpad-focused,
+        .tv-setting-row:hover {
+            background: rgba(255, 255, 255, 0.11);
+            border-color: var(--accent-color);
+            transform: scale(1.015);
+            box-shadow: 0 0 0 2px var(--accent-color), 0 12px 28px -8px rgba(0, 0, 0, 0.65);
+        }
+
+        .tv-sidebar-tab {
+            border-radius: 16px;
+            border: 1.5px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .tv-sidebar-tab.active-tab {
+            background: rgba(56, 189, 248, 0.18);
+            border-color: rgba(56, 189, 248, 0.45);
+            color: #ffffff;
+        }
+
+        .tv-sidebar-tab.dpad-focused {
+            border-color: var(--accent-color);
+            background: rgba(255, 255, 255, 0.14);
+            transform: scale(1.03);
+            box-shadow: 0 0 0 2px var(--accent-color);
+        }
+
+        @keyframes heroFadeUp {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .hero-animate {
+            animation: heroFadeUp 0.26s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <!-- ===================================================================== -->
+    <!-- FUNDO EM TELA CHEIA DINÂMICO (CROSSFADE SUAVE)                        -->
+    <!-- ===================================================================== -->
+    <div id="wallpaper-stage">
+        <div id="wallpaper-layer-a" class="wallpaper-layer active"></div>
+        <div id="wallpaper-layer-b" class="wallpaper-layer"></div>
+    </div>
+    <div id="wallpaper-scrim"></div>
+
+    <!-- ===================================================================== -->
+    <!-- TELA PRINCIPAL WIDESCREEN 16:9 DA ANDROID TV LAUNCHER                 -->
+    <!-- ===================================================================== -->
+    <div id="launcher-main-shell" class="w-full h-full flex flex-col justify-between px-10 lg:px-16 py-7 max-w-[1920px] mx-auto">
+
+        <!-- BARRA SUPERIOR LIMPA -->
+        <header class="flex items-center justify-between gap-6 z-30">
+            <!-- Topo Esquerdo: Bolinha de Perfil (GS / Foto) + Saudação -->
+            <div class="flex items-center gap-3.5">
+                <div id="user-avatar-badge" class="w-11 h-11 rounded-full tv-pill overflow-hidden flex items-center justify-center font-display font-extrabold text-sm shrink-0">
+                    GS
+                </div>
+                <span id="welcome-title-text" class="font-display font-extrabold text-xl lg:text-2xl tracking-tight drop-shadow-sm">
+                    Bem-vindo, Giovani Santos
+                </span>
+            </div>
+
+            <!-- Topo Centro: Pílula com APENAS 'Início' e 'Personalizar' -->
+            <nav class="tv-pill px-2.5 py-1.5 rounded-full flex items-center gap-2">
+                <button type="button" id="top-btn-home" onclick="focusDockFromTop()" class="dpad-focusable px-6 py-2 rounded-full text-sm font-bold flex items-center gap-2 bg-white text-slate-950 shadow-sm cursor-pointer">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                        <polyline points="9 22 9 12 15 12 15 22"/>
+                    </svg>
+                    <span>Início</span>
+                </button>
+
+                <button type="button" id="top-btn-personalize" onclick="openSmartTvSettings('app_media')" class="dpad-focusable px-6 py-2 rounded-full text-sm font-semibold flex items-center gap-2 opacity-90 hover:opacity-100 cursor-pointer">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </svg>
+                    <span>Personalizar</span>
+                </button>
+            </nav>
+
+            <!-- Topo Direito: Wi-Fi (quando conectado) + Relógio/Data + Engrenagem do Sistema -->
+            <div class="flex items-center gap-3">
+                <div class="tv-pill px-5 py-2 rounded-full flex items-center gap-3">
+                    <span id="wifi-status-indicator" class="hidden items-center gap-1.5 text-emerald-400" title="Conectado ao Wi-Fi">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M5 12.55a11 11 0 0 1 14.08 0"/>
+                            <path d="M1.42 9a16 16 0 0 1 21.16 0"/>
+                            <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+                            <line x1="12" y1="20" x2="12.01" y2="20"/>
+                        </svg>
+                    </span>
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_10px_#34d399]"></span>
+                    <span id="header-date" class="text-xs font-bold uppercase tracking-wider opacity-80">
+                        QUA 25 NOV
+                    </span>
+                    <span id="header-clock" class="font-display font-extrabold text-base lg:text-lg tracking-tight">
+                        21:10
+                    </span>
+                </div>
+
+                <!-- Engrenagem de Configurações do Sistema (Chromecast 4 / Android TV) -->
+                <button type="button" id="top-btn-system-settings" onclick="openChromecastSystemSettings()" aria-label="Configurações do Sistema Android TV / Chromecast 4" title="Configurações do Sistema (Chromecast 4 / Android TV)" class="dpad-focusable tv-pill w-11 h-11 rounded-full flex items-center justify-center cursor-pointer shrink-0">
+                    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- ================================================================= -->
+        <!-- GRADE HORIZONTAL INFERIOR: APLICATIVO DE TV                       -->
+        <!-- ================================================================= -->
+        <footer class="space-y-3 pb-1 z-20">
+            <div class="flex items-center justify-between px-1">
+                <div class="flex items-center gap-3">
+                    <h2 class="font-display font-extrabold text-lg">
+                        Aplicativo de TV
+                    </h2>
+                    <span id="dock-apps-count" class="text-xs font-bold px-2.5 py-0.5 rounded-full tv-pill">
+                        8 apps
+                    </span>
+                </div>
+                <span class="text-xs font-medium opacity-75">
+                    Setas ◀ ▶ para navegar • OK para abrir • Segure OK para remover
+                </span>
+            </div>
+
+            <div id="apps-dock-row" class="dock-scroll-stage flex items-start gap-6 no-scrollbar scroll-smooth">
+                <!-- Ícones de Aplicativo de TV + cartão '+' renderizados via JS -->
+            </div>
+        </footer>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- DIÁLOGO DE CONFIRMAÇÃO AO SEGURAR APP (LONG-PRESS ANDROID TV)         -->
+    <!-- ===================================================================== -->
+    <div id="confirm-delete-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-6 bg-black/80 backdrop-blur-md">
+        <div class="bg-slate-950 text-white w-full max-w-md rounded-3xl border border-white/15 p-7 shadow-2xl space-y-6 text-center">
+            <div class="w-16 h-16 rounded-2xl bg-rose-500/20 border border-rose-500/40 text-rose-400 flex items-center justify-center mx-auto">
+                <svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+            </div>
+            <div class="space-y-2">
+                <h3 class="font-display font-extrabold text-2xl">Remover Aplicativo?</h3>
+                <p id="confirm-delete-text" class="text-sm text-slate-300 leading-relaxed">
+                    Deseja remover este aplicativo da sua tela inicial?
+                </p>
+            </div>
+            <div class="flex items-center justify-center gap-4 pt-1">
+                <button type="button" id="confirm-del-cancel" onclick="closeConfirmDeleteModal()" class="dpad-focusable px-7 py-3 rounded-full bg-white/10 hover:bg-white/20 text-sm font-bold text-white cursor-pointer">
+                    Cancelar
+                </button>
+                <button type="button" id="confirm-del-ok" onclick="confirmDeletePendingApp()" class="dpad-focusable px-7 py-3 rounded-full bg-rose-600 hover:bg-rose-500 text-sm font-bold text-white shadow-lg cursor-pointer">
+                    Remover App
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- GAVETA SMART TV: APLICATIVOS NATIVOS DA ANDROID TV (BOTÃO '+')        -->
+    <!-- ===================================================================== -->
+    <div id="tv-app-picker-drawer" class="fixed inset-0 z-50 hidden justify-end bg-black/75 backdrop-blur-md">
+        <div class="w-full max-w-2xl h-full bg-slate-950/95 border-l border-white/15 text-white flex flex-col shadow-2xl">
+            <!-- Cabeçalho da Gaveta -->
+            <div class="px-8 py-6 border-b border-white/10 flex items-center justify-between gap-4 bg-slate-900/70">
+                <div>
+                    <span class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-sky-400">Android TV • Pacotes Nativos</span>
+                    <h2 class="font-display font-extrabold text-2xl mt-0.5">Adicionar Aplicativo da TV</h2>
+                    <p class="text-xs text-slate-400 mt-1">Pressione <strong class="text-white">OK</strong> sobre qualquer aplicativo nativo instalado na sua Android TV para adicionar ou remover.</p>
+                </div>
+                <button type="button" id="btn-close-app-picker" onclick="closeTvAppPicker()" class="picker-nav-item dpad-focusable px-5 py-2.5 rounded-full bg-white/10 hover:bg-white/20 text-xs font-bold flex items-center gap-2 cursor-pointer shrink-0">
+                    <span>Voltar</span>
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            <!-- Barra de Sincronização & Cadastro por Package Name Nativo (Sem Links) -->
+            <div class="px-8 py-4 bg-slate-900/50 border-b border-white/10 space-y-3">
+                <div class="flex items-center justify-between gap-3">
+                    <span id="picker-system-status" class="text-xs font-semibold text-emerald-400 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        Apps Nativos Android TV / Chromecast 4 (Sem Links Web)
+                    </span>
+                    <button type="button" onclick="syncNativeInstalledApps()" class="picker-nav-item dpad-focusable px-4 py-1.5 rounded-full bg-emerald-600/25 border border-emerald-500/40 text-emerald-300 text-xs font-bold cursor-pointer">
+                        Sincronizar Sistema
+                    </button>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <input type="text" id="picker-custom-package" placeholder="Nome do app ou packageName Android TV (ex: com.plexapp.android)" class="picker-nav-item flex-1 px-3.5 py-2 rounded-xl bg-slate-950 border border-white/15 text-xs text-white font-mono">
+                    <button type="button" onclick="addCustomNativePackageFromPicker()" class="picker-nav-item px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-xs font-bold text-white shrink-0 cursor-pointer">
+                        + Pacote Nativo
+                    </button>
+                </div>
+            </div>
+
+            <!-- Lista de Apps Nativos Android TV (Sem links web) -->
+            <div id="tv-native-picker-list" class="p-6 overflow-y-auto flex-1 space-y-2.5">
+                <!-- Itens grandes estilo Smart TV renderizados via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- MODAL INFORMATIVO: CONFIGURAÇÕES DO SISTEMA (CHROMECAST 4 / ANDROID TV)-->
+    <!-- ===================================================================== -->
+    <div id="chromecast-settings-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-6 bg-black/80 backdrop-blur-md">
+        <div class="bg-slate-950 text-white w-full max-w-lg rounded-3xl border border-white/15 p-7 shadow-2xl space-y-5">
+            <div class="flex items-center gap-4">
+                <div class="w-14 h-14 rounded-2xl bg-sky-500/20 border border-sky-400/40 text-sky-400 flex items-center justify-center shrink-0">
+                    <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </svg>
+                </div>
+                <div>
+                    <span class="text-[11px] font-extrabold uppercase tracking-widest text-sky-400">Sistema Operacional</span>
+                    <h3 class="font-display font-extrabold text-xl">Configurações do Sistema • Chromecast 4 / Android TV</h3>
+                </div>
+            </div>
+
+            <p id="chromecast-settings-msg" class="text-sm text-slate-300 leading-relaxed">
+                Acionando as configurações nativas do sistema Android TV / Chromecast 4 (<span class="font-mono text-sky-300">android.settings.SETTINGS</span>). Quando rodando dentro do aplicativo WebView nativo na TV, o menu de sistema do Chromecast 4 abre diretamente.
+            </p>
+
+            <div class="flex justify-end pt-1">
+                <button type="button" id="btn-close-chromecast-modal" onclick="closeChromecastSystemSettings()" class="dpad-focusable dpad-focused px-7 py-3 rounded-full bg-white text-slate-950 font-display font-bold text-sm cursor-pointer">
+                    Entendido
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- PAINEL DE CONFIGURAÇÕES SMART TV: "PERSONALIZAR" (100% D-PAD)         -->
+    <!-- ===================================================================== -->
+    <div id="smarttv-settings-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-6 lg:p-10 bg-black/80 backdrop-blur-lg">
+        <div class="w-full max-w-6xl h-[86vh] bg-slate-950/95 text-white rounded-[32px] border border-white/15 shadow-2xl overflow-hidden flex">
+
+            <!-- COLUNA ESQUERDA: CATEGORIAS DE CONFIGURAÇÃO SMART TV -->
+            <aside class="w-72 lg:w-80 bg-slate-900/90 border-r border-white/10 p-6 flex flex-col justify-between shrink-0">
+                <div class="space-y-6">
+                    <div class="px-2">
+                        <span class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-sky-400">Configurações da TV</span>
+                        <h2 class="font-display font-extrabold text-2xl mt-0.5">Personalizar</h2>
+                    </div>
+
+                    <nav class="space-y-2" id="settings-sidebar-nav">
+                        <button type="button" id="stab-app_media" onclick="selectSettingsCategory('app_media')" class="settings-nav-item tv-sidebar-tab active-tab w-full px-4 py-3.5 text-left flex items-center gap-3.5 cursor-pointer">
+                            <svg class="w-5 h-5 text-sky-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1">
+                                <rect x="3" y="3" width="18" height="18" rx="3"/>
+                                <circle cx="8.5" cy="8.5" r="1.5"/>
+                                <polyline points="21 15 16 10 5 21"/>
+                            </svg>
+                            <div>
+                                <div class="font-display font-bold text-sm">App &amp; Fundo Tela Cheia</div>
+                                <div class="text-[11px] text-slate-400">Foto, ícone e borda pulsante</div>
+                            </div>
+                        </button>
+
+                        <button type="button" id="stab-apps_order" onclick="selectSettingsCategory('apps_order')" class="settings-nav-item tv-sidebar-tab w-full px-4 py-3.5 text-left flex items-center gap-3.5 text-slate-300 cursor-pointer">
+                            <svg class="w-5 h-5 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1">
+                                <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+                                <rect x="14" y="3" width="7" height="7" rx="1.5"/>
+                                <rect x="14" y="14" width="7" height="7" rx="1.5"/>
+                                <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+                            </svg>
+                            <div>
+                                <div class="font-display font-bold text-sm">Apps na Tela Inicial</div>
+                                <div class="text-[11px] text-slate-400">Editar, reordenar ou remover</div>
+                            </div>
+                        </button>
+
+                        <button type="button" id="stab-appearance" onclick="selectSettingsCategory('appearance')" class="settings-nav-item tv-sidebar-tab w-full px-4 py-3.5 text-left flex items-center gap-3.5 text-slate-300 cursor-pointer">
+                            <svg class="w-5 h-5 text-amber-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1">
+                                <circle cx="12" cy="12" r="5"/>
+                                <line x1="12" y1="1" x2="12" y2="3"/>
+                                <line x1="12" y1="21" x2="12" y2="23"/>
+                                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                                <line x1="1" y1="12" x2="3" y2="12"/>
+                                <line x1="21" y1="12" x2="23" y2="12"/>
+                            </svg>
+                            <div>
+                                <div class="font-display font-bold text-sm">Visual &amp; Saudação</div>
+                                <div class="text-[11px] text-slate-400">Tema escuro/claro e nome</div>
+                            </div>
+                        </button>
+
+                        <button type="button" id="stab-system" onclick="selectSettingsCategory('system')" class="settings-nav-item tv-sidebar-tab w-full px-4 py-3.5 text-left flex items-center gap-3.5 text-slate-300 cursor-pointer">
+                            <svg class="w-5 h-5 text-violet-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1">
+                                <rect x="2" y="7" width="20" height="15" rx="3"/>
+                                <polyline points="17 2 12 7 7 2"/>
+                            </svg>
+                            <div>
+                                <div class="font-display font-bold text-sm">Sistema Android TV</div>
+                                <div class="text-[11px] text-slate-400">Backup JSON e ponte WebView</div>
+                            </div>
+                        </button>
+                    </nav>
+                </div>
+
+                <button type="button" id="btn-close-smarttv-settings" onclick="closeSmartTvSettings()" class="settings-nav-item dpad-focusable w-full py-3.5 px-5 rounded-2xl bg-white/10 hover:bg-white/20 font-display font-bold text-sm flex items-center justify-center gap-2 cursor-pointer">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="15 18 9 12 15 6"/></svg>
+                    <span>Voltar à Tela Inicial</span>
+                </button>
+            </aside>
+
+            <!-- COLUNA DIREITA: OPÇÕES ESTILO SMART TV -->
+            <main class="flex-1 p-8 overflow-y-auto space-y-6">
+
+                <!-- ========================================================= -->
+                <!-- CATEGORIA 1: APP & FUNDO EM TELA CHEIA                    -->
+                <!-- ========================================================= -->
+                <div id="sview-app_media" class="space-y-5">
+                    <div class="flex items-center justify-between border-b border-white/10 pb-4">
+                        <div>
+                            <h3 id="settings-editing-app-heading" class="font-display font-extrabold text-xl">Configurando: DNET TV</h3>
+                            <p class="text-xs text-slate-400 mt-0.5">Personalize a foto de fundo em tela cheia, o ícone e a cor da borda brilhante pulsante.</p>
+                        </div>
+                        <button type="button" onclick="cycleEditingApp(1)" class="settings-nav-item tv-setting-row px-4 py-2 text-xs font-bold flex items-center gap-2 cursor-pointer">
+                            <span>Trocar App</span>
+                            <span class="text-sky-400">▶</span>
+                        </button>
+                    </div>
+
+                    <!-- Preview Visual em Tempo Real -->
+                    <div class="grid grid-cols-12 gap-4 items-center p-4 rounded-2xl bg-slate-900/90 border border-white/10">
+                        <div class="col-span-8">
+                            <div id="settings-wallpaper-preview" class="w-full h-36 rounded-xl bg-cover bg-center border border-white/15 relative overflow-hidden flex items-end p-3">
+                                <span class="px-3 py-1 rounded-full bg-black/65 backdrop-blur-md text-[11px] font-bold text-white">Foto de Fundo em Tela Cheia</span>
+                            </div>
+                        </div>
+                        <div class="col-span-4 flex flex-col items-center justify-center gap-2.5">
+                            <div id="settings-icon-preview" class="w-20 h-20 rounded-2xl bg-white overflow-hidden flex items-center justify-center" style="border: 3px solid #f97316; box-shadow: 0 0 20px #f97316;"></div>
+                            <span class="text-[11px] font-bold text-slate-300">Ícone &amp; Borda</span>
+                        </div>
+                    </div>
+
+                    <!-- Opções Navegáveis por Controle Remoto -->
+                    <div class="space-y-3">
+                        <!-- Upload Foto de Fundo -->
+                        <label class="settings-nav-item tv-setting-row p-4 flex items-center justify-between gap-4 cursor-pointer">
+                            <div>
+                                <div class="font-display font-bold text-sm">Alterar Foto de Fundo (Arquivo Local)</div>
+                                <div class="text-xs text-slate-400">Selecione uma imagem do armazenamento da TV Box para exibir em tela cheia</div>
+                            </div>
+                            <span class="px-4 py-2 rounded-full bg-emerald-600 text-white text-xs font-bold shrink-0">Escolher Foto</span>
+                            <input type="file" accept="image/*" class="hidden" onchange="handleSmartSettingsMediaUpload(event, 'wallpaper')">
+                        </label>
+
+                        <!-- Upload Ícone do App -->
+                        <label class="settings-nav-item tv-setting-row p-4 flex items-center justify-between gap-4 cursor-pointer">
+                            <div>
+                                <div class="font-display font-bold text-sm">Alterar Ícone do App</div>
+                                <div class="text-xs text-slate-400">Envie uma imagem personalizada para o ícone na grade inferior</div>
+                            </div>
+                            <span class="px-4 py-2 rounded-full bg-indigo-600 text-white text-xs font-bold shrink-0">Escolher Ícone</span>
+                            <input type="file" accept="image/*" class="hidden" onchange="handleSmartSettingsMediaUpload(event, 'icon')">
+                        </label>
+
+                        <!-- Formato do Ícone & Contorno da Borda Pulsante -->
+                        <div class="tv-setting-row p-4 flex items-center justify-between gap-4">
+                            <div>
+                                <div class="font-display font-bold text-sm">Formato do Ícone &amp; Borda Pulsante</div>
+                                <div class="text-xs text-slate-400">Squircle (padrão TV), Redondo ou Contorno Livre do Ícone (sem caixa quadrada)</div>
+                            </div>
+                            <button type="button" id="settings-shape-cycle-btn" onclick="cycleEditingAppShape()" class="settings-nav-item px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-xs font-bold text-sky-300 shrink-0 cursor-pointer">
+                                Squircle TV
+                            </button>
+                        </div>
+
+                        <!-- Restaurar Imagem / Ícone Padrão -->
+                        <div class="tv-setting-row p-4 flex items-center justify-between gap-4">
+                            <div>
+                                <div class="font-display font-bold text-sm">Restaurar Imagem e Ícone Padrão</div>
+                                <div class="text-xs text-slate-400">Volta a arte de fundo e o ícone original deste aplicativo</div>
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <button type="button" onclick="resetSmartSettingsMedia('wallpaper')" class="settings-nav-item px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold cursor-pointer">Fundo Padrão</button>
+                                <button type="button" onclick="resetSmartSettingsMedia('icon')" class="settings-nav-item px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold cursor-pointer">Ícone Padrão</button>
+                            </div>
+                        </div>
+
+                        <!-- Cor da Borda Brilhante Pulsante -->
+                        <div class="tv-setting-row p-4 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="font-display font-bold text-sm">Cor da Borda Brilhante Pulsante</div>
+                                    <div class="text-xs text-slate-400">Brilha e pulsa exclusivamente nas bordas do formato do ícone selecionado</div>
+                                </div>
+                                <input type="color" id="settings-app-glow-color" oninput="updateEditingAppGlow(this.value)" class="settings-nav-item w-10 h-10 rounded-xl cursor-pointer bg-transparent border-0">
+                            </div>
+                            <div class="flex flex-wrap gap-2" id="glow-color-swatches">
+                                <!-- Paleta rápida renderizada via JS -->
+                            </div>
+                        </div>
+
+                        <!-- Nome e Categoria do App -->
+                        <div class="tv-setting-row p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-400 mb-1">Nome de Exibição</label>
+                                <input type="text" id="settings-app-name" oninput="updateEditingAppText()" class="settings-nav-item w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-white/15 text-sm text-white">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-400 mb-1">Categoria</label>
+                                <input type="text" id="settings-app-category" oninput="updateEditingAppText()" class="settings-nav-item w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-white/15 text-sm text-white">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ========================================================= -->
+                <!-- CATEGORIA 2: APPS NA TELA INICIAL (EDITAR / ORDEM / REMOVER) -->
+                <!-- ========================================================= -->
+                <div id="sview-apps_order" class="hidden space-y-5">
+                    <div class="flex items-center justify-between border-b border-white/10 pb-4">
+                        <div>
+                            <h3 class="font-display font-extrabold text-xl">Aplicativos na Tela Inicial</h3>
+                            <p class="text-xs text-slate-400 mt-0.5">Escolha um app para editar sua foto/borda, reordene na grade ou adicione novos apps da TV.</p>
+                        </div>
+                        <button type="button" onclick="openPickerFromSettings()" class="settings-nav-item tv-setting-row px-4 py-2.5 text-xs font-bold text-emerald-300 flex items-center gap-2 cursor-pointer">
+                            <span>+ Adicionar App da TV</span>
+                        </button>
+                    </div>
+
+                    <div id="settings-installed-apps-list" class="space-y-2.5">
+                        <!-- Lista de apps com botões Editar, Mover e Remover -->
+                    </div>
+                </div>
+
+                <!-- ========================================================= -->
+                <!-- CATEGORIA 3: VISUAL & SAUDAÇÃO                            -->
+                <!-- ========================================================= -->
+                <div id="sview-appearance" class="hidden space-y-5">
+                    <div class="border-b border-white/10 pb-4">
+                        <h3 class="font-display font-extrabold text-xl">Visual, Foto do Perfil &amp; Saudação</h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Personalize a foto da bolinha do perfil (GS), o tema da TV e a saudação.</p>
+                    </div>
+
+                    <div class="space-y-3">
+                        <!-- Foto da Bolinha do Perfil ('GS') -->
+                        <div class="tv-setting-row p-4 flex items-center justify-between gap-4">
+                            <div class="flex items-center gap-4">
+                                <div id="settings-avatar-preview" class="w-12 h-12 rounded-full bg-white/10 border border-white/20 overflow-hidden flex items-center justify-center font-display font-extrabold text-sm shrink-0">
+                                    GS
+                                </div>
+                                <div>
+                                    <div class="font-display font-bold text-sm">Foto da Bolinha do Perfil (Giovani Santos)</div>
+                                    <div class="text-xs text-slate-400">Envie uma foto para a bolinha ao lado de "Bem-vindo, Giovani Santos" ou volte ao GS</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <label class="settings-nav-item px-4 py-2 rounded-full bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold cursor-pointer">
+                                    <span>Enviar Foto</span>
+                                    <input type="file" accept="image/*" class="hidden" onchange="handleAvatarPhotoUpload(event)">
+                                </label>
+                                <button type="button" onclick="removeAvatarPhoto()" class="settings-nav-item px-3.5 py-2 rounded-full bg-white/10 hover:bg-white/20 text-xs font-bold cursor-pointer">
+                                    Usar GS
+                                </button>
+                            </div>
+                        </div>
+
+                        <button type="button" onclick="toggleLauncherTheme()" class="settings-nav-item tv-setting-row w-full p-4 flex items-center justify-between text-left cursor-pointer">
+                            <div>
+                                <div class="font-display font-bold text-sm">Tema da Interface</div>
+                                <div class="text-xs text-slate-400">Alterne entre Escuro Cinema e Claro Luminoso</div>
+                            </div>
+                            <span id="settings-theme-badge" class="px-4 py-1.5 rounded-full bg-sky-500/20 border border-sky-400/40 text-sky-300 text-xs font-bold">Escuro Cinema</span>
+                        </button>
+
+                        <div class="tv-setting-row p-4 space-y-2">
+                            <div class="font-display font-bold text-sm">Saudação do Topo Esquerdo</div>
+                            <input type="text" id="settings-welcome-input" oninput="updateWelcomeGreeting(this.value)" class="settings-nav-item w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-sm text-white">
+                        </div>
+
+                        <div class="tv-setting-row p-4 space-y-2">
+                            <div class="flex justify-between">
+                                <span class="font-display font-bold text-sm">Contraste sobre a Foto de Fundo</span>
+                                <span id="settings-scrim-value" class="text-xs font-bold text-sky-400">58%</span>
+                            </div>
+                            <input type="range" id="settings-scrim-slider" min="20" max="85" value="58" oninput="updateScrimSlider(this.value)" class="settings-nav-item w-full accent-sky-400">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ========================================================= -->
+                <!-- CATEGORIA 4: SISTEMA ANDROID TV & BACKUP                  -->
+                <!-- ========================================================= -->
+                <div id="sview-system" class="hidden space-y-5">
+                    <div class="border-b border-white/10 pb-4">
+                        <h3 class="font-display font-extrabold text-xl">Sistema Android TV / Chromecast 4 &amp; Backup</h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Exporte suas configurações ou integre este HTML em um APK Launcher nativo para Android TV.</p>
+                    </div>
+
+                    <div class="space-y-3">
+                        <button type="button" onclick="openChromecastSystemSettings()" class="settings-nav-item tv-setting-row w-full p-4 flex items-center justify-between text-left cursor-pointer">
+                            <div>
+                                <div class="font-display font-bold text-sm">Abrir Configurações do Sistema (Chromecast 4 / Android TV)</div>
+                                <div class="text-xs text-slate-400">Aciona <code class="text-sky-300">window.AndroidLauncher.openSystemSettings()</code> / <code class="text-sky-300">android.settings.SETTINGS</code></div>
+                            </div>
+                            <span class="px-4 py-1.5 rounded-full bg-sky-600 text-white text-xs font-bold">Abrir Sistema</span>
+                        </button>
+
+                        <button type="button" onclick="exportBackupJson()" class="settings-nav-item tv-setting-row w-full p-4 flex items-center justify-between text-left cursor-pointer">
+                            <div>
+                                <div class="font-display font-bold text-sm">Exportar Backup da Launcher (.JSON)</div>
+                                <div class="text-xs text-slate-400">Salva todos os apps, fotos de fundo, ícones, foto do perfil e bordas configuradas</div>
+                            </div>
+                            <span class="px-4 py-1.5 rounded-full bg-indigo-600 text-white text-xs font-bold">Exportar</span>
+                        </button>
+
+                        <label class="settings-nav-item tv-setting-row w-full p-4 flex items-center justify-between text-left cursor-pointer">
+                            <div>
+                                <div class="font-display font-bold text-sm">Importar Backup (.JSON)</div>
+                                <div class="text-xs text-slate-400">Restaure uma configuração salva anteriormente</div>
+                            </div>
+                            <span class="px-4 py-1.5 rounded-full bg-white/15 text-white text-xs font-bold">Importar</span>
+                            <input type="file" accept=".json" class="hidden" onchange="importBackupJson(event)">
+                        </label>
+
+                        <button type="button" onclick="restoreFactoryDefaults()" class="settings-nav-item tv-setting-row w-full p-4 flex items-center justify-between text-left cursor-pointer">
+                            <div>
+                                <div class="font-display font-bold text-sm text-rose-400">Restaurar Padrão de Fábrica</div>
+                                <div class="text-xs text-slate-400">Volta os aplicativos, foto do perfil e fundos originais da Giovani Santos TV Launcher</div>
+                            </div>
+                            <span class="px-4 py-1.5 rounded-full bg-rose-600/80 text-white text-xs font-bold">Restaurar</span>
+                        </button>
+
+                        <!-- Código da Ponte Nativa Kotlin/Android WebView -->
+                        <div class="p-4 rounded-2xl bg-slate-900 border border-white/10 space-y-2">
+                            <div class="text-xs font-extrabold uppercase tracking-wider text-emerald-400">Ponte Nativa Android TV / Chromecast 4 (WebView JavascriptInterface)</div>
+                            <p class="text-xs text-slate-300 leading-relaxed">
+                                Para lançar pacotes nativos, listar apps instalados e abrir as Configurações do Sistema no Android TV / Chromecast 4, exponha <code class="text-emerald-300">AndroidLauncher</code> no WebView:
+                            </p>
+                            <pre class="p-3 rounded-xl bg-black/70 text-[11px] font-mono text-slate-300 overflow-x-auto leading-relaxed">class TVBridge(private val ctx: Context) {
+    @JavascriptInterface
+    fun launchApp(packageName: String) {
+        ctx.packageManager.getLaunchIntentForPackage(packageName)?.let {
+            it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            ctx.startActivity(it)
+        }
+    }
+    @JavascriptInterface
+    fun openSystemSettings() {
+        val intent = Intent(Settings.ACTION_SETTINGS).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        ctx.startActivity(intent)
+    }
+    @JavascriptInterface
+    fun getInstalledApps(): String { /* retorna JSON [{name, packageName, iconBase64}] */ }
+}
+webView.addJavascriptInterface(TVBridge(this), "AndroidLauncher")</pre>
+                        </div>
+                    </div>
+                </div>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- TOAST DE FEEDBACK DA ANDROID TV                                       -->
+    <!-- ===================================================================== -->
+    <div id="tv-toast" class="fixed bottom-7 right-8 z-50 transform translate-y-24 opacity-0 transition-all duration-300 pointer-events-none">
+        <div class="px-5 py-3.5 rounded-2xl bg-slate-950/90 backdrop-blur-xl border border-white/20 text-white text-xs sm:text-sm font-semibold shadow-2xl flex items-center gap-3">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span id="tv-toast-text">Pronto</span>
+        </div>
+    </div>
+
+    <script>
+        // =====================================================================
+        // 1. GERADOR DE PAPÉIS DE PAREDE SVG EM ALTA DEFINIÇÃO (FALLBACK NATIVO)
+        // =====================================================================
+        function createWallpaperSvg(c1, c2, c3, glow) {
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+                <defs>
+                    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="${c1}"/>
+                        <stop offset="50%" stop-color="${c2}"/>
+                        <stop offset="100%" stop-color="${c3}"/>
+                    </linearGradient>
+                    <radialGradient id="r1" cx="76%" cy="32%" r="54%">
+                        <stop offset="0%" stop-color="${glow}" stop-opacity="0.62"/>
+                        <stop offset="100%" stop-color="${glow}" stop-opacity="0"/>
+                    </radialGradient>
+                    <radialGradient id="r2" cx="20%" cy="80%" r="48%">
+                        <stop offset="0%" stop-color="#ffffff" stop-opacity="0.14"/>
+                        <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+                    </radialGradient>
+                </defs>
+                <rect width="1920" height="1080" fill="url(#g)"/>
+                <rect width="1920" height="1080" fill="url(#r1)"/>
+                <rect width="1920" height="1080" fill="url(#r2)"/>
+                <circle cx="1450" cy="360" r="360" fill="none" stroke="${glow}" stroke-opacity="0.22" stroke-width="2.5"/>
+                <circle cx="1450" cy="360" r="520" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="1.5"/>
+                <path d="M0 860 Q 560 680 1120 840 T 1920 750 L 1920 1080 L 0 1080 Z" fill="#000000" fill-opacity="0.26"/>
+            </svg>`;
+            return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+        }
+
+        // =====================================================================
+        // 2. ÍCONES VETORIAIS NATIVOS DE ANDROID TV
+        // =====================================================================
+        const APP_ICONS = {
+            dnet: `<div class="w-full h-full bg-gradient-to-br from-[#ea580c] via-[#f97316] to-[#dc2626] flex flex-col items-center justify-center text-white p-2"><svg viewBox="0 0 24 24" class="w-10 h-10 mb-1" fill="none" stroke="#ffffff" stroke-width="2.1"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg><span class="text-[9px] font-extrabold tracking-widest uppercase">DNET TV</span></div>`,
+            netflix: `<svg viewBox="0 0 24 24" class="w-12 h-12" fill="#e50914"><path d="M5.398 0v.006c3.028 8.556 5.37 15.175 8.348 23.596 2.344.058 4.85.398 4.854.398-2.8-7.924-5.923-16.747-8.487-24zm8.489 0v9.63L18.6 22.951c-.043-7.86-.004-15.913.002-22.95zM5.398 1.05V24c1.873-.225 2.81-.312 4.715-.398v-9.22z"/></svg>`,
+            youtube: `<div class="w-14 h-10 rounded-xl bg-[#ff0000] flex items-center justify-center shadow"><svg viewBox="0 0 24 24" class="w-6 h-6" fill="#ffffff"><path d="M8 5v14l11-7z"/></svg></div>`,
+            ytmusic: `<div class="w-full h-full bg-[#ff0000] flex items-center justify-center"><div class="w-12 h-12 rounded-full border-2 border-white flex items-center justify-center"><svg viewBox="0 0 24 24" class="w-6 h-6" fill="#ffffff"><path d="M8 5v14l11-7z"/></svg></div></div>`,
+            disney: `<div class="w-full h-full bg-gradient-to-br from-[#061838] to-[#0c356a] flex items-center justify-center text-white font-display font-extrabold text-lg tracking-tight">Disney+</div>`,
+            prime: `<div class="w-full h-full bg-[#00a8e1] flex flex-col items-center justify-center text-white font-display font-extrabold leading-none"><span class="text-base">prime</span><span class="text-sm">video</span></div>`,
+            spotify: `<div class="w-full h-full bg-[#1db954] flex items-center justify-center"><svg viewBox="0 0 24 24" class="w-12 h-12" fill="#0f172a"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg></div>`,
+            kodi: `<div class="w-full h-full bg-gradient-to-br from-[#0284c7] to-[#0369a1] flex flex-col items-center justify-center text-white font-display font-extrabold"><span class="text-lg">KODI</span><span class="text-[9px] tracking-widest opacity-80">MEDIA</span></div>`,
+            stremio: `<div class="w-full h-full bg-gradient-to-br from-[#4c1d95] to-[#7c3aed] flex items-center justify-center text-white font-display font-extrabold text-sm tracking-wide">Stremio</div>`,
+            hbomax: `<div class="w-full h-full bg-gradient-to-br from-[#2e1065] to-[#6d28d9] flex items-center justify-center text-white font-display font-extrabold text-xl">Max</div>`,
+            globoplay: `<div class="w-full h-full bg-gradient-to-br from-[#f97316] to-[#e11d48] flex items-center justify-center text-white font-display font-extrabold text-sm">globoplay</div>`,
+            starplus: `<div class="w-full h-full bg-gradient-to-br from-[#090d16] to-[#be123c] flex items-center justify-center text-white font-display font-extrabold text-base">STAR+</div>`,
+            vlc: `<div class="w-full h-full bg-gradient-to-br from-[#f97316] to-[#ea580c] flex flex-col items-center justify-center text-white font-display font-extrabold"><span class="text-lg">VLC</span><span class="text-[9px] opacity-85">PLAYER</span></div>`,
+            smarttube: `<div class="w-full h-full bg-gradient-to-br from-[#b91c1c] to-[#7f1d1d] flex flex-col items-center justify-center text-white font-display font-extrabold"><span class="text-xs">Smart</span><span class="text-sm">Tube</span></div>`,
+            tivimate: `<div class="w-full h-full bg-gradient-to-br from-[#0f766e] to-[#115e59] flex flex-col items-center justify-center text-white font-display font-extrabold"><span class="text-sm">TiviMate</span><span class="text-[9px] opacity-80">IPTV</span></div>`,
+            iptvsmarters: `<div class="w-full h-full bg-gradient-to-br from-[#1d4ed8] to-[#1e3a8a] flex flex-col items-center justify-center text-white font-display font-extrabold text-center leading-tight"><span class="text-xs">IPTV</span><span class="text-[10px]">Smarters</span></div>`,
+            retroarch: `<div class="w-full h-full bg-gradient-to-br from-[#1e293b] to-[#0f172a] flex flex-col items-center justify-center text-white font-display font-extrabold"><span class="text-xs text-sky-400">Retro</span><span class="text-xs">Arch</span></div>`,
+            plex: `<div class="w-full h-full bg-[#18181b] flex items-center justify-center text-[#eab308] font-display font-extrabold text-lg">plex</div>`,
+            aptoide: `<div class="w-full h-full bg-gradient-to-br from-[#f97316] to-[#c2410c] flex flex-col items-center justify-center text-white font-display font-extrabold"><span class="text-xs">Aptoide</span><span class="text-[10px] opacity-90">TV</span></div>`,
+            sendfiles: `<div class="w-full h-full bg-gradient-to-br from-[#0284c7] to-[#2563eb] flex flex-col items-center justify-center text-white font-display font-extrabold text-center"><span class="text-[11px]">Send Files</span><span class="text-[10px]">to TV</span></div>`,
+            playstore: `<div class="w-full h-full bg-slate-900 flex items-center justify-center"><svg viewBox="0 0 24 24" class="w-11 h-11" fill="#38bdf8"><path d="M3 20.5v-17c0-.83.94-1.3 1.6-.8l14 8.5c.6.37.6 1.23 0 1.6l-14 8.5c-.66.5-1.6.03-1.6-.8z"/></svg></div>`,
+            settings: `<div class="w-full h-full bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center text-white"><svg viewBox="0 0 24 24" class="w-11 h-11" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>`,
+            generic: `<div class="w-full h-full bg-gradient-to-br from-indigo-600 to-violet-700 flex items-center justify-center text-white"><svg viewBox="0 0 24 24" class="w-11 h-11" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="15" rx="3"/><polyline points="17 2 12 7 7 2"/></svg></div>`
+        };
+
+        // =====================================================================
+        // 3. APLICATIVOS INICIAIS & CATÁLOGO COMPLETO NATIVO ANDROID TV
+        // =====================================================================
+        const DEFAULT_APPS = [
+            {
+                id: 'app-dnet',
+                name: 'DNET TV',
+                packageName: 'com.dnet.tv',
+                category: 'TV AO VIVO & STREAMING',
+                description: 'Canais ao vivo, filmes, séries e esportes em alta definição direto no seu aparelho Android TV.',
+                iconKey: 'dnet',
+                shapeMode: 'squircle',
+                glowColor: '#f97316',
+                customIcon: '',
+                wallpaper: createWallpaperSvg('#1f0a04', '#7c2d12', '#14532d', '#f97316')
+            },
+            {
+                id: 'app-netflix',
+                name: 'Netflix',
+                packageName: 'com.netflix.ninja',
+                category: 'FILMES & SÉRIES 4K',
+                description: 'Assista a séries originais, filmes premiados e documentários em Ultra HD 4K e Dolby Vision.',
+                iconKey: 'netflix',
+                shapeMode: 'squircle',
+                glowColor: '#ef4444',
+                customIcon: '',
+                wallpaper: createWallpaperSvg('#190407', '#7f1d1d', '#09090b', '#ef4444')
+            },
+            {
+                id: 'app-youtube',
+                name: 'YouTube TV',
+                packageName: 'com.google.android.youtube.tv',
+                category: 'VÍDEOS & TRANSMISSÕES',
+                description: 'Seus canais inscritos, transmissões ao vivo, músicas e vídeos em 4K na tela grande.',
+                iconKey: 'youtube',
+                shapeMode: 'squircle',
+                glowColor: '#ff0000',
+                customIcon: '',
+                wallpaper: createWallpaperSvg('#180808', '#991b1b', '#1e1b4b', '#ff0000')
+            },
+            {
+                id: 'app-disney',
+                name: 'Disney+',
+                packageName: 'com.disney.disneyplus',
+                category: 'ENTRETENIMENTO',
+                description: 'Histórias da Disney, Pixar, Marvel, Star Wars e National Geographic em um só lugar.',
+                iconKey: 'disney',
+                shapeMode: 'squircle',
+                glowColor: '#38bdf8',
+                customIcon: '',
+                wallpaper: createWallpaperSvg('#030b1e', '#1e3a8a', '#0f172a', '#38bdf8')
+            },
+            {
+                id: 'app-prime',
+                name: 'Prime Video',
+                packageName: 'com.amazon.amazonvideo.livingroom',
+                category: 'AMAZON ORIGINALS',
+                description: 'Filmes de sucesso, séries exclusivas Amazon Originals e esportes ao vivo.',
+                iconKey: 'prime',
+                shapeMode: 'squircle',
+                glowColor: '#00a8e1',
+                customIcon: '',
+                wallpaper: createWallpaperSvg('#041524', '#0369a1', '#09111e', '#00a8e1')
+            },
+            {
+                id: 'app-spotify',
+                name: 'Spotify',
+                packageName: 'com.spotify.tv.android',
+                category: 'MÚSICA & PODCASTS',
+                description: 'Suas playlists favoritas, álbuns e podcasts com som de alta fidelidade na TV.',
+                iconKey: 'spotify',
+                shapeMode: 'squircle',
+                glowColor: '#22c55e',
+                customIcon: '',
+                wallpaper: createWallpaperSvg('#03170c', '#14532d', '#090d16', '#22c55e')
+            },
+            {
+                id: 'app-kodi',
+                name: 'Kodi',
+                packageName: 'org.xbmc.kodi',
+                category: 'CENTRAL DE MÍDIA',
+                description: 'Reprodutor multimídia completo para seus filmes, séries e arquivos locais.',
+                iconKey: 'kodi',
+                shapeMode: 'squircle',
+                glowColor: '#0ea5e9',
+                customIcon: '',
+                wallpaper: createWallpaperSvg('#061826', '#075985', '#0f172a', '#0ea5e9')
+            },
+            {
+                id: 'app-stremio',
+                name: 'Stremio',
+                packageName: 'com.stremio.one',
+                category: 'STREAMING & CATÁLOGO',
+                description: 'Organize e assista seus filmes e séries favoritos em um só aplicativo.',
+                iconKey: 'stremio',
+                shapeMode: 'squircle',
+                glowColor: '#a855f7',
+                customIcon: '',
+                wallpaper: createWallpaperSvg('#190a36', '#4c1d95', '#090d16', '#a855f7')
+            }
+        ];
+
+        const DEFAULT_TOOL_APPS = [
+            {
+                id: 'tool-sendfiles',
+                name: 'Send Files to TV',
+                packageName: 'com.yablio.sendfilestotv',
+                category: 'FERRAMENTA • TRANSFERÊNCIA',
+                description: 'Envie APKs, mídias e arquivos rapidamente do celular ou PC para a Android TV.',
+                iconKey: 'sendfiles',
+                shapeMode: 'squircle',
+                glowColor: '#38bdf8',
+                customIcon: '',
+                wallpaper: createWallpaperSvg('#041526', '#0369a1', '#09111e', '#38bdf8')
+            },
+            {
+                id: 'tool-aptoide',
+                name: 'Aptoide TV',
+                packageName: 'cm.aptoidetv.pt',
+                category: 'FERRAMENTA • LOJA TV',
+                description: 'Instale e atualize utilitários e aplicativos compatíveis com controle remoto na TV.',
+                iconKey: 'aptoide',
+                shapeMode: 'squircle',
+                glowColor: '#fb923c',
+                customIcon: '',
+                wallpaper: createWallpaperSvg('#210b04', '#9a3412', '#090d16', '#fb923c')
+            },
+            {
+                id: 'tool-settings',
+                name: 'Configurações TV',
+                packageName: 'com.android.tv.settings',
+                category: 'FERRAMENTA • SISTEMA',
+                description: 'Ajustes de rede Wi-Fi, armazenamento, som, tela e aplicativos do sistema Android TV.',
+                iconKey: 'settings',
+                shapeMode: 'squircle',
+                glowColor: '#94a3b8',
+                customIcon: '',
+                wallpaper: createWallpaperSvg('#0f172a', '#334155', '#060913', '#94a3b8')
+            }
+        ];
+
+        const ANDROID_TV_NATIVE_APPS = [
+            { name: 'Netflix', packageName: 'com.netflix.ninja', category: 'FILMES & SÉRIES 4K', iconKey: 'netflix', glowColor: '#ef4444', c1: '#190407', c2: '#7f1d1d' },
+            { name: 'YouTube TV', packageName: 'com.google.android.youtube.tv', category: 'VÍDEOS & LIVES', iconKey: 'youtube', glowColor: '#ff0000', c1: '#180808', c2: '#991b1b' },
+            { name: 'Prime Video', packageName: 'com.amazon.amazonvideo.livingroom', category: 'STREAMING', iconKey: 'prime', glowColor: '#00a8e1', c1: '#041524', c2: '#0369a1' },
+            { name: 'Disney+', packageName: 'com.disney.disneyplus', category: 'ENTRETENIMENTO', iconKey: 'disney', glowColor: '#38bdf8', c1: '#030b1e', c2: '#1e3a8a' },
+            { name: 'Max (HBO)', packageName: 'com.wbd.stream', category: 'SÉRIES & FILMES', iconKey: 'hbomax', glowColor: '#a855f7', c1: '#1e0638', c2: '#581c87' },
+            { name: 'Globoplay', packageName: 'com.globo.globotv', category: 'TV & NOVELAS', iconKey: 'globoplay', glowColor: '#fb7185', c1: '#270710', c2: '#be123c' },
+            { name: 'Star+', packageName: 'com.disney.starplus', category: 'ESPORTES & SÉRIES', iconKey: 'starplus', glowColor: '#f43f5e', c1: '#1f0612', c2: '#9f1239' },
+            { name: 'Stremio', packageName: 'com.stremio.one', category: 'STREAMING & CATÁLOGO', iconKey: 'stremio', glowColor: '#a855f7', c1: '#190a36', c2: '#4c1d95' },
+            { name: 'Kodi', packageName: 'org.xbmc.kodi', category: 'CENTRAL DE MÍDIA', iconKey: 'kodi', glowColor: '#0ea5e9', c1: '#061826', c2: '#075985' },
+            { name: 'VLC Media Player', packageName: 'org.videolan.vlc', category: 'PLAYER DE VÍDEO', iconKey: 'vlc', glowColor: '#f97316', c1: '#230d04', c2: '#9a3412' },
+            { name: 'SmartTube', packageName: 'com.teamsmart.videomanager.tv', category: 'VÍDEOS ANDROID TV', iconKey: 'smarttube', glowColor: '#ef4444', c1: '#1f0606', c2: '#7f1d1d' },
+            { name: 'TiviMate IPTV', packageName: 'ar.tvplayer.tv', category: 'TV AO VIVO & IPTV', iconKey: 'tivimate', glowColor: '#14b8a6', c1: '#041f1c', c2: '#115e59' },
+            { name: 'IPTV Smarters Pro', packageName: 'com.nst.iptvsmarterstvbox', category: 'TV AO VIVO & IPTV', iconKey: 'iptvsmarters', glowColor: '#3b82f6', c1: '#06132b', c2: '#1d4ed8' },
+            { name: 'DNET TV', packageName: 'com.dnet.tv', category: 'TV AO VIVO & STREAMING', iconKey: 'dnet', glowColor: '#f97316', c1: '#1f0a04', c2: '#7c2d12' },
+            { name: 'RetroArch', packageName: 'com.retroarch', category: 'JOGOS & EMULADORES', iconKey: 'retroarch', glowColor: '#38bdf8', c1: '#090f1d', c2: '#1e293b' },
+            { name: 'Plex', packageName: 'com.plexapp.android', category: 'SERVIDOR DE MÍDIA', iconKey: 'plex', glowColor: '#eab308', c1: '#1a1404', c2: '#713f12' },
+            { name: 'Spotify', packageName: 'com.spotify.tv.android', category: 'MÚSICA & PODCASTS', iconKey: 'spotify', glowColor: '#22c55e', c1: '#03170c', c2: '#14532d' },
+            { name: 'YouTube Music TV', packageName: 'com.google.android.youtube.tvmusic', category: 'MÚSICA', iconKey: 'ytmusic', glowColor: '#ef4444', c1: '#1c0505', c2: '#991b1b' },
+            { name: 'Aptoide TV', packageName: 'cm.aptoidetv.pt', category: 'LOJA DE APPS TV', iconKey: 'aptoide', glowColor: '#fb923c', c1: '#210b04', c2: '#9a3412' },
+            { name: 'Send Files to TV', packageName: 'com.yablio.sendfilestotv', category: 'TRANSFERÊNCIA DE ARQUIVOS', iconKey: 'sendfiles', glowColor: '#38bdf8', c1: '#041526', c2: '#0369a1' },
+            { name: 'Google Play Store', packageName: 'com.android.vending', category: 'LOJA OFICIAL', iconKey: 'playstore', glowColor: '#38bdf8', c1: '#061826', c2: '#0284c7' },
+            { name: 'Configurações Android', packageName: 'com.android.tv.settings', category: 'SISTEMA ANDROID TV', iconKey: 'settings', glowColor: '#94a3b8', c1: '#0f172a', c2: '#334155' }
+        ];
+
+        const GLOW_SWATCHES = ['#38bdf8', '#f97316', '#ef4444', '#22c55e', '#a855f7', '#eab308', '#ec4899', '#14b8a6', '#ffffff'];
+
+        // =====================================================================
+        // 4. ESTADO GLOBAL & PERSISTÊNCIA
+        // =====================================================================
+        const STORAGE_APPS_KEY = 'giovani_tv_launcher_apps_final_v2';
+        const STORAGE_TOOLS_KEY = 'giovani_tv_launcher_tools_final_v1';
+        const STORAGE_PREFS_KEY = 'giovani_tv_launcher_prefs_final_v2';
+
+        let apps = [];
+        let toolApps = [];
+        let systemDetectedApps = [];
+        let prefs = {
+            welcomeText: 'Bem-vindo, Giovani Santos',
+            avatarPhoto: '',
+            scrimOpacity: 58,
+            theme: 'dark'
+        };
+
+        // Zonas D-Pad da tela principal: 'top' | 'hero' | 'dock' | 'tools'
+        let dpadZone = 'dock';
+        let topFocusIndex = 0;   // 0 = Início, 1 = Personalizar, 2 = Engrenagem Sistema
+        let dockFocusIndex = 0;  // 0..apps.length-1 = apps TV, apps.length = cartão '+'
+        let toolsFocusIndex = 0; // 0..toolApps.length-1 = ferramentas, toolApps.length = cartão '+'
+        let pickerTargetSection = 'tv'; // 'tv' | 'tools'
+        let activeWallpaperLayer = 'a';
+
+        // Estado Long-Press
+        let holdTimer = null;
+        let holdTargetIndex = null;
+        let holdTargetSection = 'tv';
+        let holdTriggered = false;
+        let pendingDeleteAppId = null;
+        let pendingDeleteSection = 'tv';
+        let confirmDialogFocusIndex = 0;
+
+        // Estado Gaveta '+' (Picker Android TV)
+        let pickerFocusIndex = 0;
+
+        // Estado Painel Smart TV 'Personalizar'
+        let activeSettingsCategory = 'app_media';
+        let settingsEditingAppId = null;
+        let settingsEditingSection = 'tv';
+        let settingsFocusIndex = 0;
+
+        function loadLauncherState() {
+            try {
+                const rawApps = localStorage.getItem(STORAGE_APPS_KEY);
+                const rawTools = localStorage.getItem(STORAGE_TOOLS_KEY);
+                const rawPrefs = localStorage.getItem(STORAGE_PREFS_KEY);
+                apps = rawApps ? JSON.parse(rawApps) : JSON.parse(JSON.stringify(DEFAULT_APPS));
+                toolApps = rawTools ? JSON.parse(rawTools) : JSON.parse(JSON.stringify(DEFAULT_TOOL_APPS));
+                if (rawPrefs) {
+                    prefs = { ...prefs, ...JSON.parse(rawPrefs) };
+                }
+            } catch (e) {
+                apps = JSON.parse(JSON.stringify(DEFAULT_APPS));
+                toolApps = JSON.parse(JSON.stringify(DEFAULT_TOOL_APPS));
+            }
+        }
+
+        function saveLauncherState() {
+            try {
+                localStorage.setItem(STORAGE_APPS_KEY, JSON.stringify(apps));
+                localStorage.setItem(STORAGE_TOOLS_KEY, JSON.stringify(toolApps));
+                localStorage.setItem(STORAGE_PREFS_KEY, JSON.stringify(prefs));
+            } catch (e) {
+                showTvToast('Armazenamento local cheio. Use imagens menores.');
+            }
+        }
+
+        function renderAvatarBadgeContent(targetEl) {
+            if (!targetEl) return;
+            if (prefs.avatarPhoto && prefs.avatarPhoto.trim() !== '') {
+                targetEl.innerHTML = `<img src="${prefs.avatarPhoto}" alt="Foto de perfil" class="w-full h-full object-cover" onerror="this.style.display='none'">`;
+                return;
+            }
+            const welcome = prefs.welcomeText || 'Bem-vindo, Giovani Santos';
+            const cleanName = welcome.replace(/bem[- ]vindo,?/i, '').trim();
+            const parts = cleanName.split(/\s+/).filter(Boolean);
+            const initials = parts.length >= 2
+                ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+                : (parts[0] ? parts[0].slice(0, 2).toUpperCase() : 'GS');
+            targetEl.textContent = initials;
+        }
+
+        function getAppIconMarkup(app) {
+            if (!app) return APP_ICONS.generic;
+            if (app.customIcon && app.customIcon.trim() !== '') {
+                const fitClass = app.shapeMode === 'contour' ? 'w-full h-full object-contain' : 'w-full h-full object-cover';
+                return `<img src="${app.customIcon}" alt="${app.name}" class="${fitClass}" onerror="this.style.display='none'">`;
+            }
+            return APP_ICONS[app.iconKey] || APP_ICONS.generic;
+        }
+
+        function applyPreferencesToDOM() {
+            document.getElementById('welcome-title-text').textContent = prefs.welcomeText || 'Bem-vindo, Giovani Santos';
+            renderAvatarBadgeContent(document.getElementById('user-avatar-badge'));
+            renderAvatarBadgeContent(document.getElementById('settings-avatar-preview'));
+            const opacityNum = Number(prefs.scrimOpacity);
+            const safeOpacity = Number.isFinite(opacityNum) ? Math.min(85, Math.max(20, opacityNum)) / 100 : 0.58;
+            document.documentElement.style.setProperty('--scrim-opacity', safeOpacity);
+            document.body.classList.toggle('theme-light', prefs.theme === 'light');
+            updateWifiIndicatorStatus();
+        }
+
+        function updateWifiIndicatorStatus() {
+            const wifiEl = document.getElementById('wifi-status-indicator');
+            if (!wifiEl) return;
+            const isOnline = typeof navigator !== 'undefined' ? navigator.onLine !== false : true;
+            wifiEl.classList.toggle('hidden', !isOnline);
+            wifiEl.classList.toggle('flex', isOnline);
+        }
+
+        function getSectionArray(section = 'tv') {
+            return section === 'tools' ? toolApps : apps;
+        }
+
+        function getTileDomId(section, idx) {
+            return section === 'tools' ? `tool-tile-${idx}` : `dock-tile-${idx}`;
+        }
+
+        function buildDockRowElement(container, list, section, zoneName, currentFocusIdx) {
+            container.innerHTML = '';
+            const addCardIndex = list.length;
+
+            list.forEach((app, idx) => {
+                const isFocused = dpadZone === zoneName && currentFocusIdx === idx;
+                const glow = app.glowColor || '#38bdf8';
+                const shapeClass = app.shapeMode === 'contour'
+                    ? 'shape-contour'
+                    : (app.shapeMode === 'round' ? 'shape-round' : 'shape-squircle');
+
+                const wrapper = document.createElement('div');
+                wrapper.id = getTileDomId(section, idx);
+                wrapper.className = `app-tile-wrapper ${isFocused ? 'focused' : ''}`;
+                wrapper.style.setProperty('--tile-glow', glow);
+
+                wrapper.onmouseenter = () => {
+                    dpadZone = zoneName;
+                    if (section === 'tools') setToolsFocus(idx, false);
+                    else setDockFocus(idx, false);
+                };
+
+                wrapper.onpointerdown = (e) => {
+                    if (e.button !== undefined && e.button !== 0) return;
+                    dpadZone = zoneName;
+                    if (section === 'tools') setToolsFocus(idx, false);
+                    else setDockFocus(idx, false);
+                    startHoldToDelete(idx, section);
+                };
+
+                wrapper.onpointerup = () => {
+                    const wasTriggered = holdTriggered;
+                    cancelHoldToDelete();
+                    if (!wasTriggered) {
+                        launchFocusedNativeApp();
+                    }
+                };
+
+                wrapper.onpointerleave = () => {
+                    cancelHoldToDelete();
+                };
+
+                wrapper.oncontextmenu = (e) => {
+                    e.preventDefault();
+                    cancelHoldToDelete();
+                    openConfirmDeleteModal(app, section);
+                };
+
+                wrapper.innerHTML = `
+                    <div class="app-tile ${shapeClass}">
+                        <div class="app-tile-inner">
+                            ${getAppIconMarkup(app)}
+                        </div>
+                        <div class="hold-progress-overlay">
+                            <svg class="hold-ring-svg" viewBox="0 0 44 44">
+                                <circle cx="22" cy="22" r="18" fill="none" stroke="rgba(255,255,255,0.28)" stroke-width="3.5"/>
+                                <circle class="hold-ring-circle" cx="22" cy="22" r="18" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round"/>
+                            </svg>
+                            <span class="text-[10px] font-extrabold uppercase tracking-wider text-white">Remover</span>
+                        </div>
+                    </div>
+                    <span class="app-tile-label">${app.name}</span>
+                `;
+
+                container.appendChild(wrapper);
+            });
+
+            // Cartão '+' ('Adicionar') ao final da fileira
+            const isAddFocused = dpadZone === zoneName && currentFocusIdx === addCardIndex;
+            const addWrapper = document.createElement('div');
+            addWrapper.id = getTileDomId(section, addCardIndex);
+            addWrapper.className = `app-tile-wrapper app-tile-add ${isAddFocused ? 'focused' : ''}`;
+            addWrapper.style.setProperty('--tile-glow', '#38bdf8');
+
+            addWrapper.onmouseenter = () => {
+                dpadZone = zoneName;
+                if (section === 'tools') setToolsFocus(addCardIndex, false);
+                else setDockFocus(addCardIndex, false);
+            };
+
+            addWrapper.onclick = () => {
+                dpadZone = zoneName;
+                if (section === 'tools') setToolsFocus(addCardIndex, false);
+                else setDockFocus(addCardIndex, false);
+                openTvAppPicker(section);
+            };
+
+            addWrapper.innerHTML = `
+                <div class="app-tile shape-squircle">
+                    <div class="app-tile-inner">
+                        <svg class="w-11 h-11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+                            <line x1="12" y1="5" x2="12" y2="19"/>
+                            <line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
+                    </div>
+                </div>
+                <span class="app-tile-label">Adicionar</span>
+            `;
+
+            container.appendChild(addWrapper);
+        }
+
+        function renderAppsDock() {
+            const tvDock = document.getElementById('apps-dock-row');
+
+            if (dockFocusIndex > apps.length) dockFocusIndex = apps.length;
+            if (dpadZone === 'tools') dpadZone = 'dock';
+
+            document.getElementById('dock-apps-count').textContent = `${apps.length} apps`;
+
+            buildDockRowElement(tvDock, apps, 'tv', 'dock', dockFocusIndex);
+
+            syncDpadVisualFocus();
+            updateHeroAndFullscreenWallpaper();
+        }
+
+        function setDockFocus(index, shouldScroll = true) {
+            const maxIdx = apps.length;
+            if (index < 0) index = maxIdx;
+            if (index > maxIdx) index = 0;
+
+            dockFocusIndex = index;
+            syncDpadVisualFocus();
+
+            const targetEl = document.getElementById(getTileDomId('tv', dockFocusIndex));
+            if (targetEl && shouldScroll) {
+                targetEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }
+
+            updateHeroAndFullscreenWallpaper();
+        }
+
+        function setToolsFocus(index, shouldScroll = true) {
+            const maxIdx = toolApps.length;
+            if (index < 0) index = maxIdx;
+            if (index > maxIdx) index = 0;
+
+            toolsFocusIndex = index;
+            syncDpadVisualFocus();
+
+            const targetEl = document.getElementById(getTileDomId('tools', toolsFocusIndex));
+            if (targetEl && shouldScroll) {
+                targetEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }
+
+            updateHeroAndFullscreenWallpaper();
+        }
+
+        function syncDpadVisualFocus() {
+            document.querySelectorAll('#launcher-main-shell .dpad-focused').forEach(el => {
+                el.classList.remove('dpad-focused');
+            });
+            document.querySelectorAll('#launcher-main-shell .app-tile-wrapper.focused').forEach(el => {
+                el.classList.remove('focused');
+            });
+
+            if (dpadZone === 'top') {
+                const topBtns = [
+                    document.getElementById('top-btn-home'),
+                    document.getElementById('top-btn-personalize'),
+                    document.getElementById('top-btn-system-settings')
+                ];
+                if (topBtns[topFocusIndex]) topBtns[topFocusIndex].classList.add('dpad-focused');
+            } else if (dpadZone === 'hero') {
+                const heroBtn = document.getElementById('btn-launch-primary');
+                if (heroBtn) heroBtn.classList.add('dpad-focused');
+            } else if (dpadZone === 'dock') {
+                const tile = document.getElementById(getTileDomId('tv', dockFocusIndex));
+                if (tile) tile.classList.add('focused');
+            } else if (dpadZone === 'tools') {
+                const tile = document.getElementById(getTileDomId('tools', toolsFocusIndex));
+                if (tile) tile.classList.add('focused');
+            }
+        }
+
+        function focusDockFromTop() {
+            dpadZone = 'dock';
+            setDockFocus(dockFocusIndex < apps.length ? dockFocusIndex : 0, true);
+        }
+
+        function updateHeroAndFullscreenWallpaper() {
+            const isToolsZone = dpadZone === 'tools';
+            const activeList = isToolsZone ? toolApps : apps;
+            const activeIdx = isToolsZone ? toolsFocusIndex : dockFocusIndex;
+            const isAddCard = activeIdx >= activeList.length;
+            const glowDot = document.getElementById('hero-glow-dot');
+
+            if (isAddCard) {
+                document.documentElement.style.setProperty('--accent-color', '#38bdf8');
+                if (glowDot) {
+                    glowDot.style.backgroundColor = '#38bdf8';
+                    glowDot.style.boxShadow = '0 0 12px #38bdf8';
+                }
+                const catEl = document.getElementById('hero-category');
+                if (catEl) catEl.textContent = isToolsZone ? 'APLICATIVOS DE FERRAMENTAS' : 'APLICATIVO DE TV';
+                const pkgEl = document.getElementById('hero-package-badge');
+                if (pkgEl) pkgEl.textContent = '+ APPS DA TV';
+                const titleEl = document.getElementById('hero-title');
+                if (titleEl) titleEl.textContent = 'Adicionar App';
+                const descEl = document.getElementById('hero-description');
+                if (descEl) {
+                    descEl.textContent = isToolsZone
+                        ? 'Pressione OK para adicionar utilitários e aplicativos de ferramentas nativos da sua Android TV.'
+                        : 'Pressione OK para abrir a lista de aplicativos nativos da sua Android TV e adicioná-los à tela inicial.';
+                }
+                const btnLabelEl = document.getElementById('hero-primary-btn-label');
+                if (btnLabelEl) btnLabelEl.textContent = 'Selecionar Apps';
+                return;
+            }
+
+            const app = activeList[activeIdx] || apps[0] || toolApps[0];
+            if (!app) return;
+
+            const glow = app.glowColor || '#38bdf8';
+            document.documentElement.style.setProperty('--accent-color', glow);
+            if (glowDot) {
+                glowDot.style.backgroundColor = glow;
+                glowDot.style.boxShadow = `0 0 12px ${glow}`;
+            }
+
+            const catEl = document.getElementById('hero-category');
+            if (catEl) catEl.textContent = app.category || 'ANDROID TV APP';
+            const pkgEl = document.getElementById('hero-package-badge');
+            if (pkgEl) pkgEl.textContent = app.packageName || 'android.app';
+            const titleEl = document.getElementById('hero-title');
+            if (titleEl) titleEl.textContent = app.name;
+            const descEl = document.getElementById('hero-description');
+            if (descEl) {
+                descEl.textContent = app.description || `Aplicativo nativo Android TV (${app.packageName}).`;
+            }
+            const btnLabelEl = document.getElementById('hero-primary-btn-label');
+            if (btnLabelEl) btnLabelEl.textContent = 'Abrir App';
+
+            const bgImage = app.wallpaper || createWallpaperSvg('#0f172a', '#1e293b', '#060913', glow);
+            const layerA = document.getElementById('wallpaper-layer-a');
+            const layerB = document.getElementById('wallpaper-layer-b');
+            if (!layerA || !layerB) return;
+
+            if (activeWallpaperLayer === 'a') {
+                layerB.style.backgroundImage = `url("${bgImage}")`;
+                layerB.classList.add('active');
+                layerA.classList.remove('active');
+                activeWallpaperLayer = 'b';
+            } else {
+                layerA.style.backgroundImage = `url("${bgImage}")`;
+                layerA.classList.add('active');
+                layerB.classList.remove('active');
+                activeWallpaperLayer = 'a';
+            }
+        }
+
+        // =====================================================================
+        // 6. LONG-PRESS (SEGURAR OK PARA REMOVER ESTILO ANDROID TV)
+        // =====================================================================
+        function startHoldToDelete(appIndex, section = 'tv') {
+            const list = getSectionArray(section);
+            if (appIndex < 0 || appIndex >= list.length) return;
+            cancelHoldToDelete();
+            holdTargetIndex = appIndex;
+            holdTargetSection = section;
+            holdTriggered = false;
+
+            const tileEl = document.getElementById(getTileDomId(section, appIndex));
+            if (tileEl) {
+                void tileEl.offsetWidth;
+                tileEl.classList.add('holding');
+            }
+
+            holdTimer = setTimeout(() => {
+                holdTriggered = true;
+                const appToDelete = list[appIndex];
+                if (tileEl) tileEl.classList.remove('holding');
+                if (appToDelete) openConfirmDeleteModal(appToDelete, section);
+            }, 800);
+        }
+
+        function cancelHoldToDelete() {
+            if (holdTimer) {
+                clearTimeout(holdTimer);
+                holdTimer = null;
+            }
+            if (holdTargetIndex !== null) {
+                const tileEl = document.getElementById(getTileDomId(holdTargetSection, holdTargetIndex));
+                if (tileEl) tileEl.classList.remove('holding');
+            }
+            holdTargetIndex = null;
+        }
+
+        function openConfirmDeleteModal(app, section = 'tv') {
+            if (!app) return;
+            const list = getSectionArray(section);
+            if (list.length <= 1) {
+                showTvToast('Mantenha pelo menos 1 aplicativo nesta seção.');
+                return;
+            }
+            pendingDeleteAppId = app.id;
+            pendingDeleteSection = section;
+            document.getElementById('confirm-delete-text').textContent =
+                `Deseja remover "${app.name}" (${app.packageName}) da sua tela inicial?`;
+
+            const modal = document.getElementById('confirm-delete-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            confirmDialogFocusIndex = 0;
+            updateConfirmDialogFocus();
+        }
+
+        function closeConfirmDeleteModal() {
+            pendingDeleteAppId = null;
+            const modal = document.getElementById('confirm-delete-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            syncDpadVisualFocus();
+        }
+
+        function updateConfirmDialogFocus() {
+            document.getElementById('confirm-del-cancel').classList.toggle('dpad-focused', confirmDialogFocusIndex === 0);
+            document.getElementById('confirm-del-ok').classList.toggle('dpad-focused', confirmDialogFocusIndex === 1);
+        }
+
+        function confirmDeletePendingApp() {
+            if (!pendingDeleteAppId) return;
+            const id = pendingDeleteAppId;
+            const sec = pendingDeleteSection;
+            closeConfirmDeleteModal();
+            removeAppFromDockById(id, sec);
+        }
+
+        function removeAppFromDockById(id, section = null) {
+            let targetSec = section;
+            if (!targetSec) {
+                targetSec = apps.some(a => a.id === id) ? 'tv' : 'tools';
+            }
+            const list = getSectionArray(targetSec);
+            if (list.length <= 1) {
+                showTvToast('Mantenha pelo menos 1 aplicativo nesta seção.');
+                return;
+            }
+            const removed = list.find(a => a.id === id);
+            if (targetSec === 'tools') {
+                toolApps = toolApps.filter(a => a.id !== id);
+                if (toolsFocusIndex >= toolApps.length) toolsFocusIndex = Math.max(0, toolApps.length - 1);
+            } else {
+                apps = apps.filter(a => a.id !== id);
+                if (dockFocusIndex >= apps.length) dockFocusIndex = Math.max(0, apps.length - 1);
+            }
+            saveLauncherState();
+            renderAppsDock();
+            renderSettingsInstalledAppsList();
+            showTvToast(`${removed ? removed.name : 'Aplicativo'} removido.`);
+        }
+
+        // =====================================================================
+        // 7. GAVETA SMART TV '+' — ADICIONAR APPS DA ANDROID TV SEM LINKS
+        // =====================================================================
+        function getAllAvailableAndroidApps() {
+            const combined = [...systemDetectedApps];
+            ANDROID_TV_NATIVE_APPS.forEach(item => {
+                if (!combined.some(x => x.packageName === item.packageName)) {
+                    combined.push(item);
+                }
+            });
+            return combined;
+        }
+
+        function openTvAppPicker(section = 'tv') {
+            pickerTargetSection = section;
+            const drawer = document.getElementById('tv-app-picker-drawer');
+            drawer.classList.remove('hidden');
+            drawer.classList.add('flex');
+
+            syncNativeInstalledApps(true);
+            renderTvNativePickerList();
+
+            pickerFocusIndex = 1; // Foca no primeiro app da lista
+            applyPickerDpadFocus();
+        }
+
+        function closeTvAppPicker() {
+            const drawer = document.getElementById('tv-app-picker-drawer');
+            drawer.classList.add('hidden');
+            drawer.classList.remove('flex');
+            renderAppsDock();
+        }
+
+        function formatPackageDisplayName(pkg) {
+            const known = ANDROID_TV_NATIVE_APPS.find(a => a.packageName === pkg);
+            if (known) return known.name;
+            const clean = String(pkg || '').trim();
+            const parts = clean.split('.').filter(Boolean);
+            const last = parts.length > 0 ? parts[parts.length - 1] : clean;
+            if (['android', 'tv', 'app', 'client', 'mobile', 'livingroom'].includes(last.toLowerCase()) && parts.length >= 2) {
+                const prev = parts[parts.length - 2];
+                return prev.charAt(0).toUpperCase() + prev.slice(1);
+            }
+            return last ? (last.charAt(0).toUpperCase() + last.slice(1)) : clean;
+        }
+
+        function normalizeRawPackagesList(rawInput) {
+            if (!rawInput) return [];
+            let items = [];
+
+            if (Array.isArray(rawInput)) {
+                items = rawInput;
+            } else if (typeof rawInput === 'string') {
+                const trimmed = rawInput.trim();
+                if (!trimmed) return [];
+                if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+                    try {
+                        const parsed = JSON.parse(trimmed);
+                        items = Array.isArray(parsed) ? parsed : (parsed.packages || parsed.apps || [parsed]);
+                    } catch (e) {
+                        items = trimmed.replace(/^\[|\]$/g, '').split(/[\n,;]+/);
+                    }
+                } else {
+                    items = trimmed.split(/[\n,;]+/);
+                }
+            }
+
+            const normalized = [];
+            const seen = new Set();
+
+            items.forEach(entry => {
+                if (!entry) return;
+                let pkg = '';
+                let label = '';
+                let icon = '';
+
+                if (typeof entry === 'string') {
+                    pkg = entry.replace(/^["']|["']$/g, '').trim();
+                } else if (typeof entry === 'object') {
+                    pkg = String(entry.packageName || entry.package || entry.pkg || entry.id || '').trim();
+                    label = String(entry.name || entry.appName || entry.label || '').trim();
+                    icon = String(entry.iconBase64 || entry.icon || '').trim();
+                }
+
+                if (!pkg || !pkg.includes('.') || seen.has(pkg)) return;
+                seen.add(pkg);
+
+                const known = ANDROID_TV_NATIVE_APPS.find(a => a.packageName === pkg);
+                normalized.push({
+                    name: label || formatPackageDisplayName(pkg),
+                    packageName: pkg,
+                    category: known ? known.category : 'APP INSTALADO NA TV',
+                    iconKey: known ? known.iconKey : 'generic',
+                    customIcon: icon || '',
+                    glowColor: known ? known.glowColor : '#38bdf8',
+                    c1: known ? known.c1 : '#09111e',
+                    c2: known ? known.c2 : '#1e3a8a'
+                });
+            });
+
+            return normalized.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+        }
+
+        // Função pública para Kodular (Evaluate JS / WebViewString)
+        window.receiveKodularPackages = function(rawPackages, autoPopulateHome = false) {
+            const parsedList = normalizeRawPackagesList(rawPackages);
+            if (parsedList.length === 0) return 0;
+
+            systemDetectedApps = parsedList;
+            const statusEl = document.getElementById('picker-system-status');
+            if (statusEl) {
+                statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> ${systemDetectedApps.length} aplicativos detectados na Android TV`;
+            }
+
+            if (autoPopulateHome) {
+                const defaultSignatures = DEFAULT_APPS.map(a => a.packageName).join('|');
+                const currentSignatures = apps.map(a => a.packageName).join('|');
+                if (currentSignatures === defaultSignatures) {
+                    const userApps = parsedList.filter(p => !p.packageName.startsWith('com.android.') && !p.packageName.startsWith('com.google.android.gms'));
+                    if (userApps.length > 0) {
+                        apps = userApps.slice(0, 14).map((item, i) => ({
+                            id: 'tv-pkg-' + i + '-' + item.packageName,
+                            name: item.name,
+                            packageName: item.packageName,
+                            category: item.category,
+                            description: `Aplicativo instalado no Chromecast / Google TV (${item.packageName}).`,
+                            iconKey: item.iconKey,
+                            shapeMode: 'squircle',
+                            glowColor: item.glowColor,
+                            customIcon: item.customIcon,
+                            wallpaper: createWallpaperSvg(item.c1, item.c2, '#060913', item.glowColor)
+                        }));
+                        saveLauncherState();
+                        renderAppsDock();
+                    }
+                }
+            }
+
+            renderTvNativePickerList();
+            showTvToast(`${systemDetectedApps.length} apps do aparelho sincronizados!`);
+            return systemDetectedApps.length;
+        };
+
+        function syncNativeInstalledApps(silent = false) {
+            // 1. Ponte nativa Android Studio (JavascriptInterface)
+            if (window.AndroidLauncher && typeof window.AndroidLauncher.getInstalledApps === 'function') {
+                try {
+                    const raw = window.AndroidLauncher.getInstalledApps();
+                    const count = window.receiveKodularPackages(raw, false);
+                    if (count > 0) return;
+                } catch (err) {
+                    console.warn('Ponte AndroidLauncher indisponível:', err);
+                }
+            }
+
+            // 2. Variável global injetada pelo Kodular (Evaluate JS)
+            if (window.__KODULAR_PACKAGES__) {
+                const count = window.receiveKodularPackages(window.__KODULAR_PACKAGES__, true);
+                if (count > 0) return;
+            }
+
+            // 3. Ponte nativa WebViewString do Kodular / App Inventor
+            if (window.AppInventor && typeof window.AppInventor.getWebViewString === 'function') {
+                try {
+                    const wvs = window.AppInventor.getWebViewString();
+                    if (wvs && !wvs.startsWith('LAUNCH:')) {
+                        const count = window.receiveKodularPackages(wvs, true);
+                        if (count > 0) return;
+                    }
+                } catch (err) {
+                    console.warn('WebViewString indisponível:', err);
+                }
+            }
+
+            if (!silent) {
+                showTvToast('Lista de aplicativos nativos Android TV atualizada.');
+            }
+        }
+
+        function renderTvNativePickerList() {
+            const listEl = document.getElementById('tv-native-picker-list');
+            listEl.innerHTML = '';
+
+            const catalog = getAllAvailableAndroidApps();
+            const targetList = getSectionArray(pickerTargetSection);
+
+            catalog.forEach(item => {
+                const isAdded = targetList.some(a => a.packageName === item.packageName);
+                const row = document.createElement('button');
+                row.type = 'button';
+                row.className = 'picker-nav-item tv-setting-row w-full p-4 flex items-center justify-between gap-4 text-left cursor-pointer';
+
+                const iconMarkup = item.customIcon
+                    ? `<img src="${item.customIcon}" class="w-full h-full object-cover">`
+                    : (APP_ICONS[item.iconKey] || APP_ICONS.generic);
+
+                row.innerHTML = `
+                    <div class="flex items-center gap-4 min-w-0">
+                        <div class="w-12 h-12 rounded-2xl bg-white overflow-hidden flex items-center justify-center shrink-0 shadow">
+                            ${iconMarkup}
+                        </div>
+                        <div class="min-w-0">
+                            <div class="font-display font-bold text-base text-white truncate">${item.name}</div>
+                            <div class="text-xs font-mono text-slate-400 truncate">${item.packageName}</div>
+                        </div>
+                    </div>
+                    <span class="px-4 py-2 rounded-full text-xs font-extrabold shrink-0 ${
+                        isAdded
+                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                            : 'bg-sky-600 text-white'
+                    }">
+                        ${isAdded ? 'Na Tela Inicial ✓' : '+ Adicionar'}
+                    </span>
+                `;
+
+                row.onclick = () => {
+                    toggleNativeAppInDock(item, pickerTargetSection);
+                    renderTvNativePickerList();
+                    applyPickerDpadFocus();
+                };
+
+                listEl.appendChild(row);
+            });
+        }
+
+        function toggleNativeAppInDock(item, section = 'tv') {
+            const isTools = section === 'tools';
+            const list = getSectionArray(section);
+            const existingIdx = list.findIndex(a => a.packageName === item.packageName);
+
+            if (existingIdx !== -1) {
+                if (list.length <= 1) {
+                    showTvToast('Mantenha pelo menos 1 aplicativo nesta seção.');
+                    return;
+                }
+                list.splice(existingIdx, 1);
+                if (isTools && toolsFocusIndex >= toolApps.length) {
+                    toolsFocusIndex = Math.max(0, toolApps.length - 1);
+                } else if (!isTools && dockFocusIndex >= apps.length) {
+                    dockFocusIndex = Math.max(0, apps.length - 1);
+                }
+                saveLauncherState();
+                showTvToast(`${item.name} removido.`);
+            } else {
+                const newEntry = {
+                    id: 'app-' + Date.now() + '-' + Math.floor(Math.random() * 999),
+                    name: item.name,
+                    packageName: item.packageName,
+                    category: isTools ? `FERRAMENTA • ${item.category || 'ANDROID TV'}` : (item.category || 'ANDROID TV'),
+                    description: `Aplicativo nativo instalado no Android TV (${item.packageName}).`,
+                    iconKey: item.iconKey || 'generic',
+                    shapeMode: 'squircle',
+                    glowColor: item.glowColor || '#38bdf8',
+                    customIcon: item.customIcon || '',
+                    wallpaper: createWallpaperSvg(item.c1 || '#09111e', item.c2 || '#1e3a8a', '#060913', item.glowColor || '#38bdf8')
+                };
+                list.push(newEntry);
+                if (isTools) {
+                    toolsFocusIndex = toolApps.length - 1;
+                } else {
+                    dockFocusIndex = apps.length - 1;
+                }
+                saveLauncherState();
+                showTvToast(`${item.name} adicionado!`);
+            }
+        }
+
+        function addCustomNativePackageFromPicker() {
+            const input = document.getElementById('picker-custom-package');
+            const raw = (input.value || '').trim();
+            if (!raw) {
+                showTvToast('Informe o nome ou packageName do app Android TV.');
+                return;
+            }
+
+            const hasDot = raw.includes('.');
+            const packageName = hasDot
+                ? raw.toLowerCase().replace(/[^a-z0-9._]/g, '')
+                : `com.tv.${raw.toLowerCase().replace(/[^a-z0-9]+/g, '')}`;
+            const name = hasDot
+                ? raw.split('.').filter(Boolean).pop().replace(/^\w/, c => c.toUpperCase())
+                : raw;
+
+            if (!packageName) {
+                showTvToast('PackageName Android TV inválido.');
+                return;
+            }
+
+            toggleNativeAppInDock({
+                name,
+                packageName,
+                category: 'APP NATIVO ANDROID TV',
+                iconKey: 'generic',
+                glowColor: '#38bdf8',
+                c1: '#09111e',
+                c2: '#1e3a8a'
+            }, pickerTargetSection);
+            input.value = '';
+            renderTvNativePickerList();
+            applyPickerDpadFocus();
+        }
+
+        function applyPickerDpadFocus() {
+            const items = Array.from(document.querySelectorAll('#tv-app-picker-drawer .picker-nav-item'));
+            if (items.length === 0) return;
+            if (pickerFocusIndex < 0) pickerFocusIndex = items.length - 1;
+            if (pickerFocusIndex >= items.length) pickerFocusIndex = 0;
+
+            items.forEach((el, idx) => {
+                el.classList.toggle('dpad-focused', idx === pickerFocusIndex);
+            });
+
+            const focused = items[pickerFocusIndex];
+            if (focused) {
+                focused.focus({ preventScroll: false });
+                focused.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+
+        function openSmartTvSettings(category = 'app_media', specificAppId = null, specificSection = null) {
+            const modal = document.getElementById('smarttv-settings-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            const sec = specificSection || (dpadZone === 'tools' ? 'tools' : 'tv');
+            const list = getSectionArray(sec);
+            const idx = sec === 'tools' ? toolsFocusIndex : dockFocusIndex;
+
+            const targetApp = specificAppId
+                ? (apps.find(a => a.id === specificAppId) || toolApps.find(a => a.id === specificAppId))
+                : (list[idx] || apps[0] || toolApps[0]);
+
+            settingsEditingSection = toolApps.some(a => a.id === (targetApp && targetApp.id)) ? 'tools' : 'tv';
+            settingsEditingAppId = targetApp ? targetApp.id : (apps[0] ? apps[0].id : null);
+
+            document.getElementById('settings-welcome-input').value = prefs.welcomeText;
+            document.getElementById('settings-scrim-slider').value = prefs.scrimOpacity;
+            document.getElementById('settings-scrim-value').textContent = `${prefs.scrimOpacity}%`;
+            document.getElementById('settings-theme-badge').textContent =
+                prefs.theme === 'light' ? 'Claro Luminoso' : 'Escuro Cinema';
+
+            renderGlowSwatches();
+            populateSmartSettingsAppFields();
+            renderSettingsInstalledAppsList();
+            selectSettingsCategory(category);
+        }
+
+        function closeSmartTvSettings() {
+            const modal = document.getElementById('smarttv-settings-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            renderAppsDock();
+        }
+
+        function selectSettingsCategory(categoryKey) {
+            activeSettingsCategory = categoryKey;
+            const categories = ['app_media', 'apps_order', 'appearance', 'system'];
+
+            categories.forEach(cat => {
+                const tabBtn = document.getElementById(`stab-${cat}`);
+                const viewEl = document.getElementById(`sview-${cat}`);
+                if (!tabBtn || !viewEl) return;
+
+                if (cat === categoryKey) {
+                    tabBtn.classList.add('active-tab');
+                    tabBtn.classList.remove('text-slate-300');
+                    viewEl.classList.remove('hidden');
+                } else {
+                    tabBtn.classList.remove('active-tab');
+                    tabBtn.classList.add('text-slate-300');
+                    viewEl.classList.add('hidden');
+                }
+            });
+
+            if (categoryKey === 'app_media') populateSmartSettingsAppFields();
+            if (categoryKey === 'apps_order') renderSettingsInstalledAppsList();
+
+            const visibleItems = getVisibleSmartSettingsItems();
+            settingsFocusIndex = Math.min(4, Math.max(0, visibleItems.length - 1));
+            applySmartSettingsDpadFocus();
+        }
+
+        function getEditingApp() {
+            return apps.find(a => a.id === settingsEditingAppId)
+                || toolApps.find(a => a.id === settingsEditingAppId)
+                || apps[0]
+                || toolApps[0];
+        }
+
+        function cycleEditingApp(step) {
+            const combined = [...apps, ...toolApps];
+            if (combined.length === 0) return;
+            const idx = combined.findIndex(a => a.id === settingsEditingAppId);
+            const nextIdx = (idx + step + combined.length) % combined.length;
+            const nextApp = combined[nextIdx];
+            settingsEditingAppId = nextApp.id;
+            const inToolsIdx = toolApps.findIndex(a => a.id === nextApp.id);
+            if (inToolsIdx !== -1) {
+                settingsEditingSection = 'tools';
+                toolsFocusIndex = inToolsIdx;
+            } else {
+                settingsEditingSection = 'tv';
+                dockFocusIndex = apps.findIndex(a => a.id === nextApp.id);
+            }
+            populateSmartSettingsAppFields();
+            updateHeroAndFullscreenWallpaper();
+        }
+
+        function populateSmartSettingsAppFields() {
+            const app = getEditingApp();
+            if (!app) return;
+
+            document.getElementById('settings-editing-app-heading').textContent = `Configurando: ${app.name}`;
+            document.getElementById('settings-app-name').value = app.name;
+            document.getElementById('settings-app-category').value = app.category || '';
+            document.getElementById('settings-app-glow-color').value = app.glowColor || '#38bdf8';
+
+            const shapeBtn = document.getElementById('settings-shape-cycle-btn');
+            if (shapeBtn) {
+                const mode = app.shapeMode || 'squircle';
+                shapeBtn.textContent = mode === 'contour'
+                    ? 'Contorno Livre'
+                    : (mode === 'round' ? 'Redondo' : 'Squircle TV');
+            }
+
+            const wallPreview = document.getElementById('settings-wallpaper-preview');
+            wallPreview.style.backgroundImage = `url("${app.wallpaper || ''}")`;
+
+            const iconPreview = document.getElementById('settings-icon-preview');
+            iconPreview.innerHTML = getAppIconMarkup(app);
+            const glow = app.glowColor || '#38bdf8';
+            if (app.shapeMode === 'contour') {
+                iconPreview.style.background = 'transparent';
+                iconPreview.style.border = 'none';
+                iconPreview.style.borderRadius = '0';
+                iconPreview.style.boxShadow = 'none';
+                iconPreview.style.filter = `drop-shadow(0 0 12px ${glow})`;
+            } else {
+                iconPreview.style.background = '#ffffff';
+                iconPreview.style.borderRadius = app.shapeMode === 'round' ? '9999px' : '16px';
+                iconPreview.style.border = `3px solid ${glow}`;
+                iconPreview.style.boxShadow = `0 0 22px ${glow}`;
+                iconPreview.style.filter = 'none';
+            }
+        }
+
+        function cycleEditingAppShape() {
+            const app = getEditingApp();
+            if (!app) return;
+            const order = ['squircle', 'round', 'contour'];
+            const currentIdx = order.indexOf(app.shapeMode || 'squircle');
+            app.shapeMode = order[(currentIdx + 1) % order.length];
+            saveLauncherState();
+            populateSmartSettingsAppFields();
+            renderAppsDock();
+        }
+
+        function updateEditingAppText() {
+            const app = getEditingApp();
+            if (!app) return;
+            const newName = document.getElementById('settings-app-name').value.trim();
+            const newCat = document.getElementById('settings-app-category').value.trim().toUpperCase();
+            if (newName) app.name = newName;
+            app.category = newCat || 'ANDROID TV';
+            document.getElementById('settings-editing-app-heading').textContent = `Configurando: ${app.name}`;
+            saveLauncherState();
+            renderAppsDock();
+        }
+
+        function handleSmartSettingsMediaUpload(event, target) {
+            const file = event.target.files[0];
+            const app = getEditingApp();
+            if (!file || !app) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                if (target === 'wallpaper') {
+                    app.wallpaper = e.target.result;
+                    showTvToast(`Foto de fundo de "${app.name}" atualizada!`);
+                } else {
+                    app.customIcon = e.target.result;
+                    showTvToast(`Ícone de "${app.name}" atualizado!`);
+                }
+                saveLauncherState();
+                populateSmartSettingsAppFields();
+                renderAppsDock();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function applySmartSettingsUrl(target) {
+            const app = getEditingApp();
+            if (!app) return;
+            if (target === 'wallpaper') {
+                const url = document.getElementById('settings-url-wallpaper').value.trim();
+                if (!url) return;
+                app.wallpaper = url;
+                saveLauncherState();
+                populateSmartSettingsAppFields();
+                renderAppsDock();
+                showTvToast('Foto de fundo aplicada!');
+            }
+        }
+
+        function resetSmartSettingsMedia(target) {
+            const app = getEditingApp();
+            if (!app) return;
+            if (target === 'wallpaper') {
+                app.wallpaper = createWallpaperSvg('#0f172a', '#1e293b', '#060913', app.glowColor || '#38bdf8');
+            } else {
+                app.customIcon = '';
+                app.shapeMode = 'squircle';
+            }
+            saveLauncherState();
+            populateSmartSettingsAppFields();
+            renderAppsDock();
+            showTvToast('Restaurado ao padrão.');
+        }
+
+        function renderSettingsInstalledAppsList() {
+            const list = document.getElementById('settings-installed-apps-list');
+            list.innerHTML = '';
+
+            const renderGroup = (labelText, arr, sec) => {
+                const header = document.createElement('div');
+                header.className = 'text-xs font-extrabold uppercase tracking-wider text-sky-400 pt-2 pb-1';
+                header.textContent = labelText;
+                list.appendChild(header);
+
+                arr.forEach((app, idx) => {
+                    const row = document.createElement('div');
+                    row.className = 'tv-setting-row p-3.5 flex items-center justify-between gap-3';
+
+                    row.innerHTML = `
+                        <div class="flex items-center gap-3.5 min-w-0">
+                            <div class="w-11 h-11 rounded-2xl bg-white overflow-hidden flex items-center justify-center shrink-0" style="border: 2px solid ${app.glowColor || '#38bdf8'};">
+                                ${getAppIconMarkup(app)}
+                            </div>
+                            <div class="min-w-0">
+                                <div class="font-display font-bold text-sm text-white truncate">${app.name}</div>
+                                <div class="text-[11px] font-mono text-slate-400 truncate">${app.packageName}</div>
+                            </div>
+                        </div>
+                    `;
+
+                    const actions = document.createElement('div');
+                    actions.className = 'flex items-center gap-2 shrink-0';
+
+                    const btnUp = document.createElement('button');
+                    btnUp.type = 'button';
+                    btnUp.className = 'settings-nav-item px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold cursor-pointer';
+                    btnUp.textContent = '◀';
+                    btnUp.onclick = () => moveAppOrder(idx, -1, sec);
+
+                    const btnDown = document.createElement('button');
+                    btnDown.type = 'button';
+                    btnDown.className = 'settings-nav-item px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold cursor-pointer';
+                    btnDown.textContent = '▶';
+                    btnDown.onclick = () => moveAppOrder(idx, 1, sec);
+
+                    const btnEdit = document.createElement('button');
+                    btnEdit.type = 'button';
+                    btnEdit.className = 'settings-nav-item px-3.5 py-1.5 rounded-full bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold cursor-pointer';
+                    btnEdit.textContent = 'Editar';
+                    btnEdit.onclick = () => {
+                        settingsEditingAppId = app.id;
+                        settingsEditingSection = sec;
+                        if (sec === 'tools') toolsFocusIndex = idx;
+                        else dockFocusIndex = idx;
+                        selectSettingsCategory('app_media');
+                    };
+
+                    const btnRemove = document.createElement('button');
+                    btnRemove.type = 'button';
+                    btnRemove.className = 'settings-nav-item px-3 py-1.5 rounded-full bg-rose-600/85 hover:bg-rose-600 text-white text-xs font-bold cursor-pointer';
+                    btnRemove.textContent = 'Remover';
+                    btnRemove.onclick = () => removeAppFromDockById(app.id, sec);
+
+                    actions.appendChild(btnUp);
+                    actions.appendChild(btnDown);
+                    actions.appendChild(btnEdit);
+                    actions.appendChild(btnRemove);
+                    row.appendChild(actions);
+                    list.appendChild(row);
+                });
+            };
+
+            renderGroup('Aplicativo de TV', apps, 'tv');
+            renderGroup('Aplicativos de Ferramentas', toolApps, 'tools');
+        }
+
+        function moveAppOrder(idx, delta, section = 'tv') {
+            const arr = getSectionArray(section);
+            const targetIdx = idx + delta;
+            if (targetIdx < 0 || targetIdx >= arr.length) return;
+            const temp = arr[idx];
+            arr[idx] = arr[targetIdx];
+            arr[targetIdx] = temp;
+            if (section === 'tools') toolsFocusIndex = targetIdx;
+            else dockFocusIndex = targetIdx;
+            settingsEditingAppId = arr[targetIdx].id;
+            saveLauncherState();
+            renderSettingsInstalledAppsList();
+            renderAppsDock();
+            applySmartSettingsDpadFocus();
+            showTvToast(`Ordem de "${arr[targetIdx].name}" atualizada.`);
+        }
+
+        function renderGlowSwatches() {
+            const container = document.getElementById('glow-color-swatches');
+            if (!container) return;
+            container.innerHTML = '';
+            GLOW_SWATCHES.forEach(hex => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'settings-nav-item w-8 h-8 rounded-full border-2 border-white/40 cursor-pointer';
+                btn.style.backgroundColor = hex;
+                btn.title = hex;
+                btn.onclick = () => {
+                    document.getElementById('settings-app-glow-color').value = hex;
+                    updateEditingAppGlow(hex);
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        function updateEditingAppGlow(color) {
+            const app = getEditingApp();
+            if (!app) return;
+            app.glowColor = color;
+            saveLauncherState();
+            populateSmartSettingsAppFields();
+            renderAppsDock();
+        }
+
+        function toggleLauncherTheme() {
+            prefs.theme = prefs.theme === 'light' ? 'dark' : 'light';
+            document.getElementById('settings-theme-badge').textContent =
+                prefs.theme === 'light' ? 'Claro Luminoso' : 'Escuro Cinema';
+            saveLauncherState();
+            applyPreferencesToDOM();
+            showTvToast(`Tema alterado para ${prefs.theme === 'light' ? 'Claro Luminoso' : 'Escuro Cinema'}.`);
+        }
+
+        function handleAvatarPhotoUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                prefs.avatarPhoto = e.target.result;
+                saveLauncherState();
+                applyPreferencesToDOM();
+                showTvToast('Foto da bolinha do perfil atualizada!');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function removeAvatarPhoto() {
+            prefs.avatarPhoto = '';
+            saveLauncherState();
+            applyPreferencesToDOM();
+            showTvToast('Bolinha do perfil voltou para GS.');
+        }
+
+        function updateWelcomeGreeting(val) {
+            prefs.welcomeText = val;
+            applyPreferencesToDOM();
+            saveLauncherState();
+        }
+
+        function updateScrimSlider(val) {
+            prefs.scrimOpacity = Number(val);
+            document.getElementById('settings-scrim-value').textContent = `${prefs.scrimOpacity}%`;
+            applyPreferencesToDOM();
+            saveLauncherState();
+        }
+
+        function exportBackupJson() {
+            const payload = JSON.stringify({ prefs, apps, toolApps }, null, 2);
+            const blob = new Blob([payload], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'giovani-santos-tv-launcher.json';
+            a.click();
+            URL.revokeObjectURL(url);
+            showTvToast('Backup JSON exportado!');
+        }
+
+        function importBackupJson(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if (Array.isArray(parsed.apps) && parsed.apps.length > 0) apps = parsed.apps;
+                    if (Array.isArray(parsed.toolApps) && parsed.toolApps.length > 0) toolApps = parsed.toolApps;
+                    if (parsed.prefs) prefs = { ...prefs, ...parsed.prefs };
+                    saveLauncherState();
+                    applyPreferencesToDOM();
+                    dockFocusIndex = 0;
+                    toolsFocusIndex = 0;
+                    renderAppsDock();
+                    renderSettingsInstalledAppsList();
+                    showTvToast('Backup importado com sucesso!');
+                } catch (err) {
+                    showTvToast('Arquivo JSON inválido.');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function restoreFactoryDefaults() {
+            localStorage.removeItem(STORAGE_APPS_KEY);
+            localStorage.removeItem(STORAGE_TOOLS_KEY);
+            localStorage.removeItem(STORAGE_PREFS_KEY);
+            prefs = {
+                welcomeText: 'Bem-vindo, Giovani Santos',
+                avatarPhoto: '',
+                scrimOpacity: 58,
+                theme: 'dark'
+            };
+            loadLauncherState();
+            applyPreferencesToDOM();
+            dockFocusIndex = 0;
+            toolsFocusIndex = 0;
+            dpadZone = 'dock';
+            closeSmartTvSettings();
+            showTvToast('Launcher restaurada ao padrão!');
+        }
+
+        function getVisibleSmartSettingsItems() {
+            const modal = document.getElementById('smarttv-settings-modal');
+            return Array.from(modal.querySelectorAll('.settings-nav-item')).filter(el => el.offsetParent !== null);
+        }
+
+        function applySmartSettingsDpadFocus() {
+            const items = getVisibleSmartSettingsItems();
+            if (items.length === 0) return;
+            if (settingsFocusIndex < 0) settingsFocusIndex = items.length - 1;
+            if (settingsFocusIndex >= items.length) settingsFocusIndex = 0;
+
+            items.forEach((el, idx) => {
+                el.classList.toggle('dpad-focused', idx === settingsFocusIndex);
+            });
+
+            const target = items[settingsFocusIndex];
+            if (target) {
+                target.focus({ preventScroll: false });
+                target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+
+        // =====================================================================
+        // 9. EXECUÇÃO DE APLICATIVO NATIVO ANDROID TV & CONFIGURAÇÕES DO SISTEMA
+        // =====================================================================
+        function launchFocusedNativeApp() {
+            const isTools = dpadZone === 'tools';
+            const list = isTools ? toolApps : apps;
+            const idx = isTools ? toolsFocusIndex : dockFocusIndex;
+
+            if (idx >= list.length) {
+                openTvAppPicker(isTools ? 'tools' : 'tv');
+                return;
+            }
+
+            const app = list[idx];
+            if (!app) return;
+
+            const pkg = (app.packageName || '').trim();
+            showTvToast(`Abrindo ${app.name} (${pkg})...`);
+
+            // 1. Ponte nativa Android Studio (JavascriptInterface)
+            if (window.AndroidLauncher && typeof window.AndroidLauncher.launchApp === 'function') {
+                try {
+                    window.AndroidLauncher.launchApp(pkg);
+                    return;
+                } catch (err) {
+                    console.warn(err);
+                }
+            }
+
+            // 2. Ponte nativa Kodular (WebViewString -> TaifunPM1.LaunchApp)
+            if (window.AppInventor && typeof window.AppInventor.setWebViewString === 'function') {
+                try {
+                    window.AppInventor.setWebViewString('LAUNCH:' + pkg);
+                } catch (err) {
+                    console.warn(err);
+                }
+            }
+
+            // 3. Fallback Intent URI do Android
+            if (pkg) {
+                const nativeIntent = `intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=${pkg};end`;
+                try {
+                    window.location.href = nativeIntent;
+                } catch (err) {
+                    console.warn(err);
+                }
+            }
+        }
+
+        function openChromecastSystemSettings() {
+            if (window.AndroidLauncher && typeof window.AndroidLauncher.openSystemSettings === 'function') {
+                try {
+                    window.AndroidLauncher.openSystemSettings();
+                    showTvToast('Abrindo Configurações do Sistema Android TV / Chromecast 4...');
+                    return;
+                } catch (err) {
+                    console.warn(err);
+                }
+            }
+
+            if (window.AppInventor && typeof window.AppInventor.setWebViewString === 'function') {
+                try {
+                    window.AppInventor.setWebViewString('OPEN_SETTINGS');
+                } catch (err) {
+                    console.warn(err);
+                }
+            }
+
+            try {
+                window.location.href = 'intent:#Intent;action=android.settings.SETTINGS;end';
+            } catch (err) {
+                console.warn(err);
+            }
+
+            const modal = document.getElementById('chromecast-settings-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.getElementById('btn-close-chromecast-modal').focus();
+        }
+
+        function closeChromecastSystemSettings() {
+            const modal = document.getElementById('chromecast-settings-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            syncDpadVisualFocus();
+        }
+
+        // =====================================================================
+        // 10. CONTROLE REMOTO ANDROID TV (D-PAD GLOBAL)
+        // =====================================================================
+        document.addEventListener('keydown', (e) => {
+            const confirmOpen = !document.getElementById('confirm-delete-modal').classList.contains('hidden');
+            const pickerOpen = !document.getElementById('tv-app-picker-drawer').classList.contains('hidden');
+            const settingsOpen = !document.getElementById('smarttv-settings-modal').classList.contains('hidden');
+            const chromecastModalOpen = !document.getElementById('chromecast-settings-modal').classList.contains('hidden');
+
+            // 0) Modal Configurações do Sistema Chromecast 4 / Android TV
+            if (chromecastModalOpen) {
+                if (e.key === 'Enter' || e.key === 'Escape' || e.key === 'Backspace') {
+                    e.preventDefault();
+                    closeChromecastSystemSettings();
+                }
+                return;
+            }
+
+            // 1) Diálogo de confirmação Long-Press
+            if (confirmOpen) {
+                if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    confirmDialogFocusIndex = confirmDialogFocusIndex === 0 ? 1 : 0;
+                    updateConfirmDialogFocus();
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (confirmDialogFocusIndex === 0) closeConfirmDeleteModal();
+                    else confirmDeletePendingApp();
+                } else if (e.key === 'Escape' || e.key === 'Backspace') {
+                    e.preventDefault();
+                    closeConfirmDeleteModal();
+                }
+                return;
+            }
+
+            // 2) Gaveta '+' (Apps da Android TV)
+            if (pickerOpen) {
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    pickerFocusIndex++;
+                    applyPickerDpadFocus();
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    pickerFocusIndex--;
+                    applyPickerDpadFocus();
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const items = Array.from(document.querySelectorAll('#tv-app-picker-drawer .picker-nav-item'));
+                    if (items[pickerFocusIndex]) items[pickerFocusIndex].click();
+                } else if (e.key === 'Escape' || e.key === 'Backspace' || e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    closeTvAppPicker();
+                }
+                return;
+            }
+
+            // 3) Painel Smart TV 'Personalizar'
+            if (settingsOpen) {
+                const activeTag = document.activeElement ? document.activeElement.tagName : '';
+                if (e.key === 'Escape' || (e.key === 'Backspace' && activeTag !== 'INPUT')) {
+                    e.preventDefault();
+                    closeSmartTvSettings();
+                    return;
+                }
+                if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+                    if (activeTag === 'INPUT' && document.activeElement.type === 'range' && e.key === 'ArrowRight') return;
+                    e.preventDefault();
+                    settingsFocusIndex++;
+                    applySmartSettingsDpadFocus();
+                } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+                    if (activeTag === 'INPUT' && document.activeElement.type === 'range' && e.key === 'ArrowLeft') return;
+                    e.preventDefault();
+                    settingsFocusIndex--;
+                    applySmartSettingsDpadFocus();
+                } else if (e.key === 'Enter') {
+                    if (activeTag === 'INPUT' && !['button', 'submit', 'file', 'color'].includes(document.activeElement.type)) return;
+                    const items = getVisibleSmartSettingsItems();
+                    if (items[settingsFocusIndex]) {
+                        e.preventDefault();
+                        items[settingsFocusIndex].click();
+                    }
+                }
+                return;
+            }
+
+            // 4) Tela Principal Widescreen 16:9
+            if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                if (dpadZone === 'top') {
+                    topFocusIndex = (topFocusIndex + 1) % 3;
+                    syncDpadVisualFocus();
+                } else if (dpadZone === 'dock') {
+                    setDockFocus(dockFocusIndex + 1, true);
+                } else if (dpadZone === 'tools') {
+                    setToolsFocus(toolsFocusIndex + 1, true);
+                }
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                if (dpadZone === 'top') {
+                    topFocusIndex = (topFocusIndex + 2) % 3;
+                    syncDpadVisualFocus();
+                } else if (dpadZone === 'dock') {
+                    setDockFocus(dockFocusIndex - 1, true);
+                } else if (dpadZone === 'tools') {
+                    setToolsFocus(toolsFocusIndex - 1, true);
+                }
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (dpadZone === 'dock') {
+                    dpadZone = 'top';
+                    syncDpadVisualFocus();
+                }
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (dpadZone === 'top') {
+                    dpadZone = 'dock';
+                    setDockFocus(dockFocusIndex, true);
+                }
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (e.repeat) return;
+
+                if (dpadZone === 'top') {
+                    if (topFocusIndex === 0) focusDockFromTop();
+                    else if (topFocusIndex === 1) openSmartTvSettings('app_media');
+                    else openChromecastSystemSettings();
+                } else if (dpadZone === 'hero') {
+                    launchFocusedNativeApp();
+                } else if (dpadZone === 'dock') {
+                    if (dockFocusIndex < apps.length) {
+                        startHoldToDelete(dockFocusIndex, 'tv');
+                    } else {
+                        openTvAppPicker('tv');
+                    }
+                } else if (dpadZone === 'tools') {
+                    if (toolsFocusIndex < toolApps.length) {
+                        startHoldToDelete(toolsFocusIndex, 'tools');
+                    } else {
+                        openTvAppPicker('tools');
+                    }
+                }
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') {
+                const confirmOpen = !document.getElementById('confirm-delete-modal').classList.contains('hidden');
+                const pickerOpen = !document.getElementById('tv-app-picker-drawer').classList.contains('hidden');
+                const settingsOpen = !document.getElementById('smarttv-settings-modal').classList.contains('hidden');
+                if (confirmOpen || pickerOpen || settingsOpen) return;
+
+                if (dpadZone === 'dock' && dockFocusIndex < apps.length) {
+                    const wasTriggered = holdTriggered;
+                    cancelHoldToDelete();
+                    if (!wasTriggered) {
+                        launchFocusedNativeApp();
+                    }
+                } else if (dpadZone === 'tools' && toolsFocusIndex < toolApps.length) {
+                    const wasTriggered = holdTriggered;
+                    cancelHoldToDelete();
+                    if (!wasTriggered) {
+                        launchFocusedNativeApp();
+                    }
+                }
+            }
+        });
+
+        // =====================================================================
+        // 11. RELÓGIO EM TEMPO REAL & TOAST
+        // =====================================================================
+        function updateHeaderClock() {
+            const now = new Date();
+            const hh = String(now.getHours()).padStart(2, '0');
+            const mm = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('header-clock').textContent = `${hh}:${mm}`;
+
+            const days = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
+            const months = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+            document.getElementById('header-date').textContent =
+                `${days[now.getDay()]} ${now.getDate()} ${months[now.getMonth()]}`;
+        }
+
+        let toastTimer = null;
+        function showTvToast(message) {
+            const el = document.getElementById('tv-toast');
+            document.getElementById('tv-toast-text').textContent = message;
+            el.classList.remove('translate-y-24', 'opacity-0');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                el.classList.add('translate-y-24', 'opacity-0');
+            }, 3000);
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadLauncherState();
+            syncNativeInstalledApps(true);
+            applyPreferencesToDOM();
+            renderAppsDock();
+            updateHeaderClock();
+            setInterval(updateHeaderClock, 15000);
+            window.addEventListener('online', updateWifiIndicatorStatus);
+            window.addEventListener('offline', updateWifiIndicatorStatus);
+        });
+    </script>
+</body>
+</html>
